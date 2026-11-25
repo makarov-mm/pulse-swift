@@ -20,7 +20,7 @@ The **0.1 source foundation** includes native sampling, three sortable views, a 
 
 ## Local acceptance results
 
-On 25 November 2026, the release package at `357ea7c` was built on Apple silicon with macOS 27.2.1 and Xcode 27.2. All 13 tests passed. The unpacked universal archive passed strict ad-hoc signature verification and contained arm64 and x86_64 slices with a minimum deployment target of 14.0. Physical Intel hardware and macOS 14 still need separate runs.
+On 25 November 2026, the release package was built from the sources at `569082f` on Apple silicon with macOS 27.2.1 and Xcode 27.2. All 13 tests passed. The unpacked universal archive passed strict ad-hoc signature verification and contained arm64 and x86_64 slices with a minimum deployment target of 14.0. Physical Intel hardware and macOS 14 still need separate runs.
 
 | Scenario | Observed result |
 | --- | --- |
