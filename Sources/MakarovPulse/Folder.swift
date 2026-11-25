@@ -38,16 +38,16 @@ final class FolderModel: ObservableObject {
         note = nil
         progress = nil
         scanning = true
-        task = Task.detached(priority: .utility) { [weak self] in
+        // The model lives as long as its window, so the scan holds it for its own duration.
+        task = Task.detached(priority: .utility) { [model = self] in
             let result = Result {
                 try FolderScan.scan(url) { update in
-                    guard let model = self else { return }
                     Task { @MainActor in
                         if model.generation == run { model.progress = update }
                     }
                 }
             }
-            await self?.finish(result, run: run)
+            await model.finish(result, run: run)
         }
     }
 

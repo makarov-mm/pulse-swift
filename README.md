@@ -75,4 +75,4 @@ For development, open `Package.swift` in Xcode and select the **MakarovPulse** e
 | `Tests/` | Deterministic model tests, and macOS tests that inspect the test process, a loopback socket and a folder fixture. |
 | `Packaging/`, `scripts/` | Bundle metadata and local app packaging. |
 
-**Build status.** Everything after the 0.1 foundation was written without access to a Mac toolchain. It has not been compiled, and none of the tests have been run. Run `swift test` first and expect to fix compile errors before the M0 acceptance run. The platform capability matrix, milestone state and acceptance criteria are in [ROADMAP.md](ROADMAP.md).
+**Build status.** The package builds with Xcode on macOS 27 (Apple silicon), and `swift test` passes: ten model tests and three native tests. The window itself has not been exercised yet. The acceptance runs in [ROADMAP.md](ROADMAP.md) are still open, as are an Intel build and the minimum macOS 14 release.

@@ -5,3 +5,5 @@ dist/
 DerivedData/
 xcuserdata/
 build.log
+.pulse-run
+.pulse-done
