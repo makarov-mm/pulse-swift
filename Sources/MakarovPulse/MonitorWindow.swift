@@ -246,17 +246,21 @@ struct MonitorWindow: View {
         return HStack(spacing: 10) {
             MetricCard(title: "CPU", value: Display.percent(monitor.snapshot?.hostCPU),
                        detail: "Whole machine · drag to inspect an interval", color: .accentColor,
-                       samples: samples(\.cpu), window: window, ceiling: 100, selection: $span)
+                       samples: samples(\.cpu), window: window, ceiling: 100, selection: $span,
+                       spoken: { Display.percent($0) })
             MetricCard(title: "Wired memory", value: Display.bytes(raw?.wiredBytes),
                        detail: "of \(Display.bytes(raw?.totalRAM)) RAM", color: .purple,
-                       samples: samples(\.wired), window: window, ceiling: raw.map { Double($0.totalRAM) })
+                       samples: samples(\.wired), window: window, ceiling: raw.map { Double($0.totalRAM) },
+                       spoken: { Display.bytes(UInt64(max(0, $0))) })
             MetricCard(title: "Disk space", value: Display.bytes(raw?.volumeFreeBytes),
                        detail: "Available on startup data volume", color: .teal,
                        samples: samples(\.volumeFree), window: window,
-                       ceiling: raw?.volumeTotalBytes.map { Double($0) })
+                       ceiling: raw?.volumeTotalBytes.map { Double($0) },
+                       spoken: { Display.bytes(UInt64(max(0, $0))) })
             MetricCard(title: "Network", value: Display.rate(fastest?.combinedRate),
                        detail: fastest.map { "\($0.name) · receive + send" } ?? "Waiting for rates",
-                       color: .orange, samples: networkSamples, window: window, ceiling: nil)
+                       color: .orange, samples: networkSamples, window: window, ceiling: nil,
+                       spoken: { Display.rate($0) })
         }
     }
 }

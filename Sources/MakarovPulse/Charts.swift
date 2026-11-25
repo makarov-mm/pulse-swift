@@ -66,6 +66,16 @@ struct MetricCard: View {
     let ceiling: Double?
     /// When set, dragging across the graph selects a time range.
     var selection: Binding<ClosedRange<Date>?>?
+    /// Formats a graph value for VoiceOver. The graph itself is hidden from accessibility.
+    var spoken: ((Double) -> String)?
+
+    /// Describes the visible graph in words: its lowest and highest value.
+    private var trend: String {
+        guard let spoken, let now = samples.last?.time else { return "" }
+        let visible = samples.filter { now.timeIntervalSince($0.time) <= window }.compactMap(\.value)
+        guard let low = visible.min(), let high = visible.max() else { return "" }
+        return "Between \(spoken(low)) and \(spoken(high)) over the last \(Int(window / 60)) min"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -78,6 +88,7 @@ struct MetricCard: View {
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 9))
         .overlay { RoundedRectangle(cornerRadius: 9).strokeBorder(Color.secondary.opacity(0.25)) }
         .accessibilityElement(children: .combine)
+        .accessibilityValue(trend)
     }
 
     @ViewBuilder private var chart: some View {

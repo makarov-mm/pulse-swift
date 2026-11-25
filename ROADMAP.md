@@ -16,7 +16,7 @@ The **0.1 source foundation** includes native sampling, three sortable views, a 
 | M3 | Implemented in source: folder picker, cancellable background scan from file metadata, squarified treemap, sortable child list, drill-down, breadcrumb and parent navigation, Finder reveal, logical and allocated bytes, partial totals. Policy: links are not followed, packages are entered, other volumes and undownloaded cloud folders are listed and not entered, a hard link is counted once. APFS clones are counted in full at every path. Awaiting the M0 build and the M3 acceptance run. |
 | M4 | Implemented in source: threads, descriptor counts and IPv4/IPv6 socket endpoints of the selected instance with an identity check before and after the read, user names beside UIDs, a confirmed Quit request for regular apps of the current user, and a read-only list of launchd job definitions with a link to Login Items settings. Awaiting the M0 build and the M4 acceptance run. |
 | M5 | Implemented in source: versioned JSON capture with units, monotonic offsets, wall-clock times, cadence, OS/hardware metadata, coverage and gaps; offline replay with interval ranking; two-run comparison by process name with notes on differing core counts, architectures and intervals; opt-in executable paths. Endpoint addresses are never saved. Awaiting the M0 build and the M5 acceptance run. |
-| M6 | Open. Needs a Developer ID, notarization and test machines. |
+| M6 | Partly prepared: the build script can produce a universal binary and sign with a Developer ID and the hardened runtime, and the overview graphs have spoken descriptions. Open: bundle ID decision, notarization, a clean-Mac test, the string catalog, UI tests, the capability table. |
 
 ## What fits macOS
 

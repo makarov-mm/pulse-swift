@@ -14,7 +14,7 @@ The Windows edition inspired the arrangement. On macOS, host CPU use, process CP
 
 ## Build and run on a Mac
 
-Install Xcode 15 or later with a macOS 14 or newer SDK. Open Terminal in the extracted directory and run the following commands.
+Install Xcode 16 or later. The views rely on SwiftUI's main-actor isolation of `View` in that SDK. The app runs on macOS 14 or later. Open Terminal in the extracted directory and run the following commands.
 
 ```sh
 swift test
@@ -22,7 +22,16 @@ sh scripts/build-app.sh
 open "dist/Makarov Pulse.app"
 ```
 
-The script builds for the current Mac’s architecture and ad-hoc signs the local development bundle. For development, open `Package.swift` in Xcode and select the **MakarovPulse** executable scheme and **My Mac**. You can also run `swift run MakarovPulse`. The package has no external Swift dependencies. A GitHub Actions workflow runs the tests and builds the bundle on a macOS runner when placed in its own repository.
+The script builds for the current Mac's architecture and ad-hoc signs the local development bundle. Two environment variables change that:
+
+| Variable | Effect |
+| --- | --- |
+| `PULSE_UNIVERSAL=1` | Build one binary for arm64 and x86_64. |
+| `PULSE_SIGN_IDENTITY` | Sign with the named Developer ID identity, the hardened runtime and a secure timestamp. Notarize and staple the result yourself. |
+
+For development, open `Package.swift` in Xcode and select the **MakarovPulse** executable scheme and **My Mac**. You can also run `swift run MakarovPulse`. The package has no external Swift dependencies. A GitHub Actions workflow runs the tests and builds the bundle on a macOS runner.
+
+`sh scripts/load-worker.sh 20` burns one core for 20 seconds under the process name `yes`. Use it for the acceptance runs in the roadmap.
 
 ## Use the monitor
 
@@ -59,11 +68,11 @@ The script builds for the current Mac’s architecture and ad-hoc signs the loca
 
 | Path | Responsibility |
 | --- | --- |
-| `Sources/PulseCore/` | Process identity, sample deltas, search, and bounded history. The core also builds on other Swift platforms. |
-| `Sources/PulseMac/` | macOS collectors and executable identity checks. One actor serializes OS reads away from the UI. |
+| `Sources/PulseCore/` | Process identity, sample deltas, search, bounded history with interval ranking, process tree, treemap layout, and the capture format. No platform imports. |
+| `Sources/PulseMac/` | macOS collectors: processes, cores, interfaces, storage drivers, threads and sockets, the folder scanner and the launchd reader. One actor serializes OS reads away from the UI. |
 | `Sources/DarwinHeaders/` | A module map and include-only header expose the installed SDK declarations to Swift. |
-| `Sources/MakarovPulse/` | SwiftUI window, live charts, sortable tables, AppKit About panel, and Finder integration. |
-| `Tests/` | Deterministic model tests and a macOS smoke test that inspects its own test process. |
+| `Sources/MakarovPulse/` | SwiftUI window, charts, tables, inspector, folder treemap, captures, AppKit About panel, and Finder integration. |
+| `Tests/` | Deterministic model tests, and macOS tests that inspect the test process, a loopback socket and a folder fixture. |
 | `Packaging/`, `scripts/` | Bundle metadata and local app packaging. |
 
-Swift 5.9.2 parsed all ten Swift files. The portable core compiled on Windows and all five model tests passed there. Building the native window, running the Darwin sampler smoke test, and checking both Mac architectures still require macOS. The platform capability matrix and milestone acceptance criteria are in [ROADMAP.md](ROADMAP.md).
+**Build status.** Everything after the 0.1 foundation was written without access to a Mac toolchain. It has not been compiled, and none of the tests have been run. Run `swift test` first and expect to fix compile errors before the M0 acceptance run. The platform capability matrix, milestone state and acceptance criteria are in [ROADMAP.md](ROADMAP.md).
