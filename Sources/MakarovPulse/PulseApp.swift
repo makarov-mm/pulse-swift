@@ -20,7 +20,7 @@ struct PulseApp: App {
                     Button("About Makarov Pulse") {
                         NSApp.orderFrontStandardAboutPanel(options: [
                             .applicationName: "Makarov Pulse",
-                            .applicationVersion: "0.1.0",
+                            .applicationVersion: Display.version,
                             .credits: NSAttributedString(string: "Developed by Mykhailo Makarov")
                         ])
                     }

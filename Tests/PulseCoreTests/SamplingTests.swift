@@ -183,4 +183,57 @@ final class SamplingTests: XCTestCase {
         XCTAssertEqual(rects[1], TreemapRect(x: 0, y: 2, width: 3, height: 2))
         XCTAssertTrue(Treemap.layout([], width: 6, height: 4).isEmpty)
     }
+
+    func testCaptureRoundTripKeepsGapsIdentityAndRejectsBadFiles() throws {
+        var history = History()
+        var last: RawSample?
+        for i in 1...40 {
+            // A sleep after sample 20 moves the wall clock by an hour. PID 42 is reused after sample 30.
+            var sample = raw(Double(i))
+            if i > 20 { sample.date = sample.date.addingTimeInterval(3600) }
+            sample.processes = [i <= 30 ? process(UInt64(i) * 100) : process(UInt64(i) * 50, birth: 2)]
+            sample.host = .init(user: UInt32(i) * 10, system: 0, idle: UInt32(i) * 30, nice: 0)
+            history.add(Snapshot(current: sample, previous: last, interval: 1), interface: nil)
+            last = sample
+        }
+        let machine = Capture.Machine(osVersion: "14.5", architecture: "arm64", model: "Mac15,6",
+                                      logicalCores: 12, memoryBytes: 1 << 34)
+        let capture = Capture(history: history, intervalSeconds: 1, machine: machine,
+                              coverage: .init(readableProcesses: 1, listedProcesses: 2,
+                                              leadersPerSample: History.leaderCount),
+                              executables: nil, app: "Test")
+        let data = try capture.encoded()
+        let loaded = try Capture.decode(data)
+        XCTAssertEqual(loaded.machine, machine)
+        XCTAssertEqual(loaded.samples.count, 40)
+        XCTAssertEqual(loaded.samples.filter(\.gap).count, 2)
+        XCTAssertEqual(loaded.samples[20].offset, 20, accuracy: 1e-9)
+        XCTAssertEqual(loaded.measuredSeconds, 38, accuracy: 1e-9)
+        XCTAssertNil(loaded.executables)
+
+        // Rankings are reproducible without live process access.
+        let replay = History(replaying: loaded)
+        let live = history.summary(from: .distantPast, to: .distantFuture)
+        let offline = replay.summary(from: .distantPast, to: .distantFuture)
+        XCTAssertEqual(offline.leaders.map(\.id), live.leaders.map(\.id))
+        XCTAssertEqual(offline.leaders.count, 2)
+        XCTAssertEqual(offline.leaders[0].cpuSeconds, live.leaders[0].cpuSeconds, accuracy: 1e-6)
+        XCTAssertEqual(offline.hostCPU ?? 0, 25, accuracy: 1e-6)
+
+        XCTAssertThrowsError(try Capture.decode(data.prefix(data.count / 2))) {
+            XCTAssertEqual($0 as? CaptureError, .unreadable)
+        }
+        var future = loaded
+        future.schema = 99
+        XCTAssertThrowsError(try Capture.decode(try future.encoded())) {
+            XCTAssertEqual($0 as? CaptureError, .unsupportedSchema(99))
+        }
+
+        var other = loaded
+        other.machine.logicalCores = 8
+        other.intervalSeconds = 5
+        XCTAssertEqual(CaptureComparison.notes(loaded, other).count, 2)
+        XCTAssertEqual(CaptureComparison.rows(loaded, other).first?.name, "Build Worker")
+        XCTAssertEqual(CaptureComparison.rows(loaded, other).first?.first, CaptureComparison.rows(loaded, other).first?.second)
+    }
 }

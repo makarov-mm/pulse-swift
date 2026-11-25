@@ -15,6 +15,8 @@ public struct Leader: Hashable, Sendable, Codable {
 
 public struct HistoryPoint: Sendable {
     public let time: Date
+    /// Seconds the machine has been awake. Monotonic, and it does not advance during sleep.
+    public let uptime: TimeInterval
     public let elapsed: TimeInterval?
     public let cpu, wired, volumeFree, network: Double?
     public let networkID: InterfaceID?
@@ -72,6 +74,16 @@ public struct History: Sendable {
     public private(set) var pinned: [PinnedSeries] = []
     public init() {}
 
+    /// Rebuilds the host series and leaders of a saved capture for offline ranking.
+    public init(replaying capture: Capture) {
+        points = capture.samples.map {
+            HistoryPoint(time: $0.wallClock, uptime: $0.offset, elapsed: $0.gap ? nil : $0.elapsed,
+                         cpu: $0.hostCPU, wired: $0.wiredBytes, volumeFree: nil,
+                         network: $0.networkBytesPerSecond, networkID: nil, startsSegment: $0.gap,
+                         leaders: $0.leaders, cores: [], interfaces: [], disks: [])
+        }
+    }
+
     public mutating func add(_ sample: Snapshot, interface: InterfaceRow?) {
         let time = sample.raw.date
         if let last = points.last, last.time >= time {
@@ -88,7 +100,7 @@ public struct History: Sendable {
             }
             .sorted { $0.cpu == $1.cpu ? $0.id.pid < $1.id.pid : $0.cpu > $1.cpu }
             .prefix(Self.leaderCount)
-        points.append(HistoryPoint(time: time, elapsed: sample.elapsed, cpu: sample.hostCPU,
+        points.append(HistoryPoint(time: time, uptime: sample.raw.uptime, elapsed: sample.elapsed, cpu: sample.hostCPU,
                                    wired: sample.raw.wiredBytes.map { Double($0) },
                                    volumeFree: sample.raw.volumeFreeBytes.map { Double($0) },
                                    network: interface?.combinedRate, networkID: interface?.id,

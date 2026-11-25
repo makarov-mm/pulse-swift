@@ -4,6 +4,7 @@ import PulseCore
 private enum Pane: String, CaseIterable, Identifiable {
     case processes = "Processes", tree = "Tree", details = "Details"
     case cores = "Cores", disks = "Disks", network = "Network", folder = "Folder", startup = "Startup"
+    case captures = "Captures"
 
     var listsProcesses: Bool { self == .processes || self == .tree || self == .details }
     var id: Self { self }
@@ -12,6 +13,7 @@ private enum Pane: String, CaseIterable, Identifiable {
 struct MonitorWindow: View {
     @StateObject private var monitor = Monitor()
     @StateObject private var folder = FolderModel()
+    @StateObject private var captures = CaptureModel()
     @State private var pane = Pane.processes
     @State private var query = ""
     @State private var interfaceQuery = ""
@@ -52,7 +54,7 @@ struct MonitorWindow: View {
             status
         }
         .padding(18)
-        .frame(minWidth: 840, minHeight: 510)
+        .frame(minWidth: 900, minHeight: 510)
         .toolbar {
             Picker("History", selection: $monitor.window) {
                 Text("1 min").tag(60)
@@ -91,9 +93,9 @@ struct MonitorWindow: View {
             Picker("View", selection: $pane) {
                 ForEach(Pane.allCases) { Text($0.rawValue).tag($0) }
             }
-            .labelsHidden().pickerStyle(.segmented).frame(maxWidth: 720)
+            .labelsHidden().pickerStyle(.segmented).frame(maxWidth: 800)
             Spacer()
-            if pane != .cores && pane != .folder {
+            if pane != .cores && pane != .folder && pane != .captures {
                 TextField(filterPrompt, text: filterText)
                     .textFieldStyle(.roundedBorder).frame(width: 202)
                     .focused($searching).accessibilityLabel("Filter table")
@@ -156,6 +158,8 @@ struct MonitorWindow: View {
             FolderPane(model: folder)
         case .startup:
             StartupPane(query: startupQuery)
+        case .captures:
+            CapturesPane(model: captures, monitor: monitor)
         case .cores:
             CoreGrid(points: monitor.history.points, latest: monitor.snapshot?.cores ?? [], window: window)
         default:
@@ -210,6 +214,8 @@ struct MonitorWindow: View {
             return "\(frame.cores.count) logical cores"
         case .startup:
             return "Job definitions are shown as written on disk · Pulse does not load, edit or remove jobs"
+        case .captures:
+            return "Captures hold host samples and the busiest processes of each · endpoint addresses are never saved"
         case .folder:
             return "Sizes come from file metadata · links are not followed · other volumes are not entered"
         default:
