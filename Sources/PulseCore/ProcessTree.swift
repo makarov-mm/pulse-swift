@@ -56,6 +56,8 @@ public enum ProcessTree {
     }
 
     private static func precedes(_ a: ProcessID, _ b: ProcessID) -> Bool {
-        (a.startSeconds, a.startMicroseconds, a.pid) < (b.startSeconds, b.startMicroseconds, b.pid)
+        if a.startSeconds != b.startSeconds { return a.startSeconds < b.startSeconds }
+        if a.startMicroseconds != b.startMicroseconds { return a.startMicroseconds < b.startMicroseconds }
+        return a.pid < b.pid
     }
 }

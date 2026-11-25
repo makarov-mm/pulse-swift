@@ -93,13 +93,15 @@ public struct History: Sendable {
         let cutoff = time.addingTimeInterval(-Self.retention)
         points.removeFirst(points.firstIndex { $0.time >= cutoff } ?? points.count)
 
-        let leaders = sample.processes
-            .compactMap { row -> Leader? in
-                guard let cpu = row.cpu, cpu > 0 else { return nil }
-                return Leader(id: row.id, name: row.name, cpu: cpu)
-            }
-            .sorted { $0.cpu == $1.cpu ? $0.id.pid < $1.id.pid : $0.cpu > $1.cpu }
-            .prefix(Self.leaderCount)
+        var busy: [Leader] = []
+        for row in sample.processes {
+            if let cpu = row.cpu, cpu > 0 { busy.append(Leader(id: row.id, name: row.name, cpu: cpu)) }
+        }
+        busy.sort { (a: Leader, b: Leader) -> Bool in
+            if a.cpu == b.cpu { return a.id.pid < b.id.pid }
+            return a.cpu > b.cpu
+        }
+        let leaders = busy.prefix(Self.leaderCount)
         points.append(HistoryPoint(time: time, uptime: sample.raw.uptime, elapsed: sample.elapsed, cpu: sample.hostCPU,
                                    wired: sample.raw.wiredBytes.map { Double($0) },
                                    volumeFree: sample.raw.volumeFreeBytes.map { Double($0) },
@@ -166,12 +168,16 @@ public struct History: Sendable {
                 totals[leader.id] = total
             }
         }
-        let leaders = totals.map { id, total in
-            Contribution(id: id, name: total.name, cpuSeconds: total.seconds,
-                         averageCPU: measured > 0 ? 100 * total.seconds / measured : 0,
-                         peakCPU: total.peak, firstSeen: total.first, lastSeen: total.last)
+        var leaders: [Contribution] = []
+        for (id, total) in totals {
+            let average: Double = measured > 0 ? 100 * total.seconds / measured : 0
+            leaders.append(Contribution(id: id, name: total.name, cpuSeconds: total.seconds, averageCPU: average,
+                                        peakCPU: total.peak, firstSeen: total.first, lastSeen: total.last))
         }
-        .sorted { $0.cpuSeconds == $1.cpuSeconds ? $0.id.pid < $1.id.pid : $0.cpuSeconds > $1.cpuSeconds }
+        leaders.sort { (a: Contribution, b: Contribution) -> Bool in
+            if a.cpuSeconds == b.cpuSeconds { return a.id.pid < b.id.pid }
+            return a.cpuSeconds > b.cpuSeconds
+        }
         return IntervalSummary(start: start, end: end, measuredSeconds: measured,
                                hostCPU: hostSeconds > 0 ? hostBusy / hostSeconds : nil, leaders: leaders)
     }

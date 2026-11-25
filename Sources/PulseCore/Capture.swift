@@ -127,7 +127,9 @@ public struct Capture: Codable, Sendable {
 
     /// Seconds backed by rate samples. Gaps are excluded.
     public var measuredSeconds: TimeInterval {
-        samples.reduce(0) { $0 + ($1.gap ? 0 : $1.elapsed ?? 0) }
+        var total: TimeInterval = 0
+        for sample in samples where !sample.gap { total += sample.elapsed ?? 0 }
+        return total
     }
 
     /// CPU seconds per process name. Names are used because PIDs differ between runs and machines.
@@ -155,15 +157,21 @@ public enum CaptureComparison {
     public static func rows(_ a: Capture, _ b: Capture) -> [ComparisonRow] {
         let first = a.cpuSecondsByName(), second = b.cpuSecondsByName()
         let spanA = a.measuredSeconds, spanB = b.measuredSeconds
-        return Set(first.keys).union(second.keys).map { name in
-            ComparisonRow(name: name,
-                          first: spanA > 0 ? first[name].map { 100 * $0 / spanA } : nil,
-                          second: spanB > 0 ? second[name].map { 100 * $0 / spanB } : nil)
+        func share(_ seconds: Double?, _ span: Double) -> Double? {
+            guard let seconds, span > 0 else { return nil }
+            return 100 * seconds / span
         }
-        .sorted {
-            let lhs = max($0.firstSort, $0.secondSort), rhs = max($1.firstSort, $1.secondSort)
-            return lhs == rhs ? $0.name < $1.name : lhs > rhs
+        var rows: [ComparisonRow] = []
+        for name in Set(first.keys).union(second.keys) {
+            rows.append(ComparisonRow(name: name, first: share(first[name], spanA),
+                                      second: share(second[name], spanB)))
         }
+        rows.sort { (a: ComparisonRow, b: ComparisonRow) -> Bool in
+            let lhs: Double = max(a.firstSort, a.secondSort), rhs: Double = max(b.firstSort, b.secondSort)
+            if lhs == rhs { return a.name < b.name }
+            return lhs > rhs
+        }
+        return rows
     }
 
     /// Differences that change how the two runs can be read side by side.

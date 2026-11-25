@@ -98,9 +98,9 @@ private struct Walker {
             allocated += file.allocatedBytes
             files.append(file)
         }
-        files.sort {
-            $0.allocatedBytes == $1.allocatedBytes ? $0.logicalBytes > $1.logicalBytes
-                : $0.allocatedBytes > $1.allocatedBytes
+        files.sort { (a: FolderNode, b: FolderNode) -> Bool in
+            if a.allocatedBytes == b.allocatedBytes { return a.logicalBytes > b.logicalBytes }
+            return a.allocatedBytes > b.allocatedBytes
         }
         if files.count > FolderScan.keptFilesPerFolder {
             let rest = files[FolderScan.keptFilesPerFolder...]

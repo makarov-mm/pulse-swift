@@ -53,8 +53,12 @@ extension MacSampler {
                 case .none: partial = true
                 }
             }
-            kinds = counts.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }
-                .map { (Self.descriptorKind($0.key), $0.value) }
+            var list: [(kind: String, count: Int)] = []
+            for (type, count) in counts.sorted(by: { $0.key < $1.key }) {
+                list.append((kind: Self.descriptorKind(type), count: count))
+            }
+            list.sort { (a: (kind: String, count: Int), b: (kind: String, count: Int)) -> Bool in a.count > b.count }
+            kinds = list
         }
         guard isCurrent(id) else { return nil }
         return ProcessDetails(id: id, threads: threads, descriptors: kinds, sockets: sockets, partial: partial)

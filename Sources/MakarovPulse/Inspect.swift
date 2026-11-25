@@ -44,7 +44,7 @@ struct ProcessDetailsView: View {
     @ViewBuilder private func threads(_ details: ProcessDetails) -> some View {
         Text("Threads").font(.headline)
         if let threads = details.threads {
-            ForEach(threads.sorted { $0.cpu == $1.cpu ? $0.id < $1.id : $0.cpu > $1.cpu }.prefix(8)) { thread in
+            ForEach(busiest(threads)) { thread in
                 HStack {
                     Text(thread.name.isEmpty ? "Thread \(String(thread.id))" : thread.name).lineLimit(1)
                     Spacer()
@@ -58,6 +58,14 @@ struct ProcessDetailsView: View {
         } else {
             Text("Threads are not readable for this process.").font(.callout).foregroundStyle(.secondary)
         }
+    }
+
+    private func busiest(_ threads: [ThreadDetail]) -> [ThreadDetail] {
+        let ordered = threads.sorted { (a: ThreadDetail, b: ThreadDetail) -> Bool in
+            if a.cpu == b.cpu { return a.id < b.id }
+            return a.cpu > b.cpu
+        }
+        return Array(ordered.prefix(8))
     }
 
     @ViewBuilder private func descriptors(_ details: ProcessDetails) -> some View {

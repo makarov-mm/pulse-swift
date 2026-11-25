@@ -12,7 +12,7 @@ struct IntervalPanel: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Selected interval").font(.headline)
-                Text("\(Display.clock(summary.start)) – \(Display.clock(summary.end)) · \(Display.seconds(summary.measuredSeconds)) measured · host CPU \(Display.percent(summary.hostCPU))")
+                Text(caption)
                     .font(.callout).foregroundStyle(.secondary).lineLimit(1)
                 Spacer()
                 Button("Clear", action: clear)
@@ -46,6 +46,12 @@ struct IntervalPanel: View {
         .padding(10)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 9))
         .overlay { RoundedRectangle(cornerRadius: 9).strokeBorder(Color.secondary.opacity(0.25)) }
+    }
+
+    private var caption: String {
+        let range = Display.clock(summary.start) + " – " + Display.clock(summary.end)
+        let measured = Display.seconds(summary.measuredSeconds) + " measured"
+        return range + " · " + measured + " · host CPU " + Display.percent(summary.hostCPU)
     }
 
     private func heading(_ text: String) -> some View {

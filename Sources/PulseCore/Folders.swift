@@ -71,10 +71,12 @@ public enum Treemap {
     /// A weight that is not positive gets an empty rectangle.
     public static func layout(_ weights: [Double], width: Double, height: Double) -> [TreemapRect] {
         var result = [TreemapRect](repeating: TreemapRect(x: 0, y: 0, width: 0, height: 0), count: weights.count)
-        let total = weights.reduce(0) { $0 + max(0, $1) }
+        var total = 0.0
+        for weight in weights where weight > 0 { total += weight }
         guard total > 0, width > 0, height > 0 else { return result }
         let scale = width * height / total
-        let order = weights.indices.filter { weights[$0] > 0 }.sorted { weights[$0] > weights[$1] }
+        var order: [Int] = weights.indices.filter { weights[$0] > 0 }
+        order.sort { (a: Int, b: Int) -> Bool in weights[a] > weights[b] }
         var free = TreemapRect(x: 0, y: 0, width: width, height: height)
         var row: [Int] = []
         var rowArea = 0.0
