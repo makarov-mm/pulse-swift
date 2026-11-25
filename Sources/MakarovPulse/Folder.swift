@@ -41,8 +41,9 @@ final class FolderModel: ObservableObject {
         task = Task.detached(priority: .utility) { [weak self] in
             let result = Result {
                 try FolderScan.scan(url) { update in
-                    Task { @MainActor [weak self] in
-                        if self?.generation == run { self?.progress = update }
+                    guard let model = self else { return }
+                    Task { @MainActor in
+                        if model.generation == run { model.progress = update }
                     }
                 }
             }

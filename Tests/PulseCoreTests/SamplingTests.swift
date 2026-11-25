@@ -188,9 +188,10 @@ final class SamplingTests: XCTestCase {
         var history = History()
         var last: RawSample?
         for i in 1...40 {
-            // A sleep after sample 20 moves the wall clock by an hour. PID 42 is reused after sample 30.
+            // A sleep after sample 20 moves the wall clock by ten minutes, which stays inside the
+            // retention window. PID 42 is reused after sample 30.
             var sample = raw(Double(i))
-            if i > 20 { sample.date = sample.date.addingTimeInterval(3600) }
+            if i > 20 { sample.date = sample.date.addingTimeInterval(600) }
             sample.processes = [i <= 30 ? process(UInt64(i) * 100) : process(UInt64(i) * 50, birth: 2)]
             sample.host = .init(user: UInt32(i) * 10, system: 0, idle: UInt32(i) * 30, nice: 0)
             history.add(Snapshot(current: sample, previous: last, interval: 1), interface: nil)

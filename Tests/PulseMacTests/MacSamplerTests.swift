@@ -57,7 +57,8 @@ final class MacSamplerTests: XCTestCase {
         let sparse = try child("sparse")
         XCTAssertEqual(sparse.logicalBytes, 64 << 20)
         XCTAssertLessThan(sparse.allocatedBytes, sparse.logicalBytes)
-        XCTAssertGreaterThan(try child("big").allocatedBytes, try child("small").allocatedBytes)
+        // Whichever path was reached first holds the blocks, so compare the pair with the small file.
+        XCTAssertGreaterThan(linked.map(\.allocatedBytes).reduce(0, +), try child("small").allocatedBytes)
         XCTAssertEqual(node.items, 5)
     }
 
