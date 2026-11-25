@@ -81,9 +81,9 @@ For development, open `Package.swift` in Xcode and select the **MakarovPulse** e
 
 | Machine | What was checked |
 | --- | --- |
-| Apple silicon, macOS 27, current Xcode | `swift test` (ten model tests, three native tests). The window was opened and its views were walked through once. |
+| Apple silicon, macOS 27.2.1, Xcode 27.2 | All 13 tests passed. Native and universal release bundles passed strict ad-hoc signature verification. Both arm64 and x86_64 slices were verified in the universal bundle. |
 | GitHub Actions `macos-15` runner | `swift test` and `scripts/build-app.sh` on every push. |
 
-Not checked yet: an Intel Mac, a universal build, the minimum macOS 14 release, a signed and notarized copy on a clean Mac, and the controlled acceptance runs in [ROADMAP.md](ROADMAP.md).
+On the same Mac, the live checks covered folder navigation, capture export and replay, a confirmed Quit, and sleep and wake. The remaining release checks include a physical Intel Mac, macOS 14, and a notarized download on a clean Mac. [Acceptance results and known issues](ROADMAP.md#local-acceptance-results)
 
 Observed restriction: without elevated rights, macOS gives CPU, memory and thread counters only for the current user's processes. Processes of other users are listed with identity only.
