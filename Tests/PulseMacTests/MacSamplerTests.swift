@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 import XCTest
 import PulseCore
-import PulseMac
+@testable import PulseMac
 
 final class MacSamplerTests: XCTestCase {
     func testOwnProcessAndExecutableIdentity() async throws {
@@ -17,10 +17,14 @@ final class MacSamplerTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(try XCTUnwrap(snapshot.listedProcesses), snapshot.processes.count)
         let path = await sampler.executable(for: own.id)
         XCTAssertTrue(FileManager.default.fileExists(atPath: try XCTUnwrap(path).path))
-        let reused = ProcessID(pid: own.id.pid, startSeconds: own.id.startSeconds + 1,
-                               startMicroseconds: own.id.startMicroseconds)
+        let sameProcess = await sampler.isCurrentUserAppProcess(own.id)
+        XCTAssertTrue(sameProcess)
+        let reused = ProcessID(pid: own.id.pid, startSeconds: own.id.startSeconds,
+                               startMicroseconds: (own.id.startMicroseconds + 1) % 1_000_000)
         let mismatched = await sampler.executable(for: reused)
         XCTAssertNil(mismatched)
+        let staleProcess = await sampler.isCurrentUserAppProcess(reused)
+        XCTAssertFalse(staleProcess)
     }
 
     func testFolderScanHandlesLinksSparseFilesAndUnreadableFolders() throws {

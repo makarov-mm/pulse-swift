@@ -128,6 +128,15 @@ public actor MacSampler {
         bsdInfo(pid).map { identity($0) } ?? kernelReading(pid)?.id
     }
 
+    /// Check ownership and identity from the same kernel record before sending Quit.
+    func isCurrentUserAppProcess(_ id: ProcessID) -> Bool {
+        if let info = bsdInfo(id.pid) {
+            return identity(info) == id && info.pbi_uid == getuid()
+        }
+        guard let reading = kernelReading(id.pid) else { return false }
+        return reading.id == id && reading.uid == getuid()
+    }
+
     /// Identity of a process that libproc will not describe, typically one owned by another user.
     /// The kernel process table gives parent, owner, start time and a short name, and no counters.
     private func kernelReading(_ pid: Int32) -> ProcessReading? {

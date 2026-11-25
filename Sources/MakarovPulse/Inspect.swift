@@ -106,45 +106,36 @@ struct ProcessDetailsView: View {
 struct QuitButton: View {
     let row: ProcessRow
     let sampler: MacSampler
-    @State private var confirming = false
+    @State private var pending: AppQuitRequest?
     @State private var message: String?
 
-    /// Only regular apps owned by the current user. An app registers with the system some time after
-    /// its process starts, so a launch date before the process start means the PID changed hands.
-    private var application: NSRunningApplication? {
-        guard row.uid == getuid(), let app = NSRunningApplication(processIdentifier: row.pid),
-              app.activationPolicy == .regular, !app.isTerminated,
-              app.processIdentifier != ProcessInfo.processInfo.processIdentifier
-        else { return nil }
-        if let launched = app.launchDate, launched.timeIntervalSince(row.id.started) < -5 { return nil }
-        return app
+    private var confirming: Binding<Bool> {
+        Binding(get: { pending != nil }, set: { if !$0 { pending = nil } })
     }
 
     var body: some View {
+        let candidate = AppQuitRequest(row: row)
         VStack(alignment: .leading, spacing: 4) {
-            Button("Quit App…") { confirming = true }
-                .disabled(application == nil)
+            Button("Quit App…") { pending = candidate }
+                .disabled(candidate == nil)
                 .help("Available for apps you own. The app can ask to save changes or refuse.")
             if let message { Text(message).font(.caption).foregroundStyle(.secondary) }
         }
-        .confirmationDialog("Quit \(row.name)?", isPresented: $confirming) {
-            Button("Quit", role: .destructive) { quit() }
+        .confirmationDialog("Quit \(pending?.name ?? row.name)?", isPresented: confirming, presenting: pending) { request in
+            Button("Quit", role: .destructive) { quit(request) }
             Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Pulse asks PID \(String(row.pid)) to quit normally. Unsaved changes are the app's to handle.")
+        } message: { request in
+            Text("Pulse asks PID \(String(request.id.pid)) to quit normally. Unsaved changes are the app's to handle.")
         }
-        .onChange(of: row.id) { _, _ in message = nil }
     }
 
-    private func quit() {
-        let id = row.id
+    private func quit(_ request: AppQuitRequest) {
         Task { @MainActor in
-            // Identity is checked again right before acting. A reused PID is rejected.
-            guard await sampler.isCurrent(id), id == row.id, let app = application else {
-                message = "The process changed or exited. Nothing was sent."
-                return
+            switch await request.send(using: sampler) {
+            case .requested: message = "Quit requested."
+            case .changed: message = "The process changed or exited. Nothing was sent."
+            case .refused: message = "The Quit request could not be sent."
             }
-            message = app.terminate() ? "Quit requested." : "The app refused the request."
         }
     }
 }

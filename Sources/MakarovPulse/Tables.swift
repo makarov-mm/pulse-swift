@@ -228,7 +228,7 @@ struct ProcessInspector: View {
                 }
                 .disabled(path == nil)
                 if let message { Text(message).font(.caption).foregroundStyle(.secondary) }
-                QuitButton(row: row, sampler: sampler)
+                QuitButton(row: row, sampler: sampler).id(row.id)
                 Divider()
                 ProcessDetailsView(id: row.id, tick: tick, sampler: sampler)
             }
