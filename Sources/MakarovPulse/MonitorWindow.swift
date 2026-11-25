@@ -2,7 +2,10 @@ import SwiftUI
 import PulseCore
 
 private enum Pane: String, CaseIterable, Identifiable {
-    case processes = "Processes", tree = "Tree", details = "Details", network = "Network"
+    case processes = "Processes", tree = "Tree", details = "Details"
+    case cores = "Cores", disks = "Disks", network = "Network"
+
+    var listsProcesses: Bool { self == .processes || self == .tree || self == .details }
     var id: Self { self }
 }
 
@@ -13,6 +16,9 @@ struct MonitorWindow: View {
     @State private var interfaceQuery = ""
     @State private var selected: ProcessID?
     @State private var span: ClosedRange<Date>?
+    @State private var diskQuery = ""
+    @State private var pinnedInterface: InterfaceID?
+    @State private var pinnedDisk: DiskID?
     @FocusState private var searching: Bool
 
     private var processes: [ProcessRow] {
@@ -73,7 +79,7 @@ struct MonitorWindow: View {
     }
 
     private func show(_ id: ProcessID) {
-        if pane == .network { pane = .processes }
+        if !pane.listsProcesses { pane = .processes }
         query = ""
         selected = id
     }
@@ -83,24 +89,68 @@ struct MonitorWindow: View {
             Picker("View", selection: $pane) {
                 ForEach(Pane.allCases) { Text($0.rawValue).tag($0) }
             }
-            .labelsHidden().pickerStyle(.segmented).frame(maxWidth: 420)
+            .labelsHidden().pickerStyle(.segmented).frame(maxWidth: 560)
             Spacer()
-            TextField(pane == .network ? "Find an interface" : "Find a name or PID",
-                      text: pane == .network ? $interfaceQuery : $query)
-                .textFieldStyle(.roundedBorder).frame(width: 202)
-                .focused($searching).accessibilityLabel("Filter table")
-            Button { searching = true } label: { Image(systemName: "magnifyingglass") }
-                .keyboardShortcut("f", modifiers: .command).help("Find in the current table")
-                .accessibilityLabel("Find")
+            if pane != .cores {
+                TextField(filterPrompt, text: filterText)
+                    .textFieldStyle(.roundedBorder).frame(width: 202)
+                    .focused($searching).accessibilityLabel("Filter table")
+                Button { searching = true } label: { Image(systemName: "magnifyingglass") }
+                    .keyboardShortcut("f", modifiers: .command).help("Find in the current table")
+                    .accessibilityLabel("Find")
+            }
+        }
+    }
+
+    private var filterPrompt: String {
+        switch pane {
+        case .network: return "Find an interface"
+        case .disks: return "Find a device"
+        default: return "Find a name or PID"
+        }
+    }
+
+    private var filterText: Binding<String> {
+        switch pane {
+        case .network: return $interfaceQuery
+        case .disks: return $diskQuery
+        default: return $query
+        }
+    }
+
+    private var interfaces: [InterfaceRow] {
+        (monitor.snapshot?.interfaces ?? []).filter {
+            interfaceQuery.isEmpty || $0.name.localizedCaseInsensitiveContains(interfaceQuery)
+        }
+    }
+
+    private var disks: [DiskRow] {
+        (monitor.snapshot?.disks ?? []).filter {
+            diskQuery.isEmpty || $0.name.localizedCaseInsensitiveContains(diskQuery)
         }
     }
 
     @ViewBuilder private var content: some View {
-        if pane == .network {
-            NetworkTable(rows: (monitor.snapshot?.interfaces ?? []).filter {
-                interfaceQuery.isEmpty || $0.name.localizedCaseInsensitiveContains(interfaceQuery)
-            })
-        } else {
+        switch pane {
+        case .network:
+            if let id = pinnedInterface {
+                let flow = monitor.history.points.flow(\.interfaces, id)
+                FlowPanel(title: id.name, incomingLabel: "Receive", outgoingLabel: "Send",
+                          incoming: flow.incoming, outgoing: flow.outgoing, window: window,
+                          unpin: { pinnedInterface = nil })
+            }
+            NetworkTable(rows: interfaces, selection: $pinnedInterface)
+        case .disks:
+            if let id = pinnedDisk {
+                let flow = monitor.history.points.flow(\.disks, id)
+                FlowPanel(title: id.name, incomingLabel: "Read", outgoingLabel: "Write",
+                          incoming: flow.incoming, outgoing: flow.outgoing, window: window,
+                          unpin: { pinnedDisk = nil })
+            }
+            DiskTable(rows: disks, selection: $pinnedDisk)
+        case .cores:
+            CoreGrid(points: monitor.history.points, latest: monitor.snapshot?.cores ?? [], window: window)
+        default:
             HSplitView {
                 processList.frame(minWidth: 430)
                 if let selected, let row = monitor.snapshot?.processes.first(where: { $0.id == selected }) {
@@ -130,14 +180,7 @@ struct MonitorWindow: View {
     private var status: some View {
         HStack {
             if let frame = monitor.snapshot {
-                if pane == .network {
-                    Text(frame.raw.interfaces == nil ? "Interface counters unavailable"
-                         : "\(frame.interfaces.count) readable interfaces")
-                } else if let total = frame.raw.listedProcesses {
-                    Text("\(processes.count) matching · \(frame.processes.count) readable of \(total) listed")
-                } else {
-                    Text("Process list unavailable")
-                }
+                Text(summary(frame))
                 Spacer()
                 Text("Updated \(Display.clock(frame.raw.date))")
             } else {
@@ -145,6 +188,22 @@ struct MonitorWindow: View {
             }
         }
         .font(.caption).foregroundStyle(.secondary)
+    }
+
+    private func summary(_ frame: Snapshot) -> String {
+        switch pane {
+        case .network:
+            return frame.raw.interfaces == nil ? "Interface counters unavailable"
+                : "\(frame.interfaces.count) readable interfaces · select one to graph receive and send"
+        case .disks:
+            return frame.raw.disks == nil ? "Storage counters unavailable"
+                : "\(frame.disks.count) storage devices · select one to graph read and write"
+        case .cores:
+            return "\(frame.cores.count) logical cores"
+        default:
+            guard let total = frame.raw.listedProcesses else { return "Process list unavailable" }
+            return "\(processes.count) matching · \(frame.processes.count) readable of \(total) listed"
+        }
     }
 
     private func samples(_ field: KeyPath<HistoryPoint, Double?>) -> [ChartSample] {

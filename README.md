@@ -32,7 +32,9 @@ The script builds for the current Mac’s architecture and ad-hoc signs the loca
 - Pick a 1-, 5- or 15-minute history in the toolbar. Drag across the CPU graph to rank the processes that were busiest in that interval, including ones that have already exited. The ranking shows PID, start time, average CPU and CPU time. It is built from the eight busiest processes of each sample.
 - Select a process and choose **Pin timeline** to keep that instance's CPU graph above the table. The series is keyed by PID and start time, so a reused PID never continues it.
 - Column widths, order and visibility, and the sort order, are stored separately for Processes and Details.
-- Choose **Network** to see measured interfaces that are up and non-loopback. The filter accepts interface names such as `en0`. A VPN tunnel and its underlying interface can both carry the same traffic.
+- Choose **Cores** for one graph per logical core.
+- Choose **Disks** for cumulative bytes and read/write rates per storage device. Select a device to graph both directions. A device whose driver publishes no statistics shows —. These are transfer rates. The Disk space card stays a capacity reading.
+- Choose **Network** to see measured interfaces that are up and non-loopback. The filter accepts interface names such as `en0`. Select an interface to graph its receive and send rates. A VPN tunnel and its underlying interface can both carry the same traffic.
 - Choose a one-, two- or five-second refresh interval. **⇧⌘P** pauses or resumes updates. After resuming, the first sample establishes a new baseline.
 - Choose **Makarov Pulse → About Makarov Pulse** for the version and developer credit. The English interface follows the system appearance and accent.
 

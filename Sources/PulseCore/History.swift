@@ -20,6 +20,9 @@ public struct HistoryPoint: Sendable {
     public let networkID: InterfaceID?
     public let startsSegment: Bool
     public let leaders: [Leader]
+    public let cores: [Double?]
+    public let interfaces: [Flow<InterfaceID>]
+    public let disks: [Flow<DiskID>]
 }
 
 /// CPU attributed to one process instance inside a selected interval.
@@ -89,7 +92,14 @@ public struct History: Sendable {
                                    wired: sample.raw.wiredBytes.map { Double($0) },
                                    volumeFree: sample.raw.volumeFreeBytes.map { Double($0) },
                                    network: interface?.combinedRate, networkID: interface?.id,
-                                   startsSegment: sample.startsSegment, leaders: Array(leaders)))
+                                   startsSegment: sample.startsSegment, leaders: Array(leaders),
+                                   cores: sample.cores,
+                                   interfaces: sample.interfaces.map {
+                                       Flow(id: $0.id, incoming: $0.receiveRate, outgoing: $0.sendRate)
+                                   },
+                                   disks: sample.disks.map {
+                                       Flow(id: $0.id, incoming: $0.readRate, outgoing: $0.writeRate)
+                                   }))
         if points.count > Self.capacity { points.removeFirst(points.count - Self.capacity) }
 
         guard !pinned.isEmpty else { return }

@@ -19,7 +19,9 @@ public actor MacSampler {
             result.listedProcesses = pids.count
             result.processes = pids.compactMap(readProcess)
         }
+        result.cores = coreTicks(host)
         result.interfaces = networkCounters()
+        result.disks = diskCounters()
 
         let data = URL(fileURLWithPath: "/System/Volumes/Data", isDirectory: true)
         if let values = try? data.resourceValues(forKeys: [.volumeAvailableCapacityKey, .volumeTotalCapacityKey]) {

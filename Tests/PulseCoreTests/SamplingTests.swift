@@ -143,4 +143,27 @@ final class SamplingTests: XCTestCase {
         let folded = ProcessTree.lines(ProcessTree.build(rows), collapsed: [rows[1].id])
         XCTAssertEqual(folded.map(\.row.pid), [1, 10, 12, 30, 20])
     }
+
+    func testPerCoreLoadAndDiskRatesKeepDeviceIdentity() {
+        var a = raw(1), b = raw(3)
+        a.cores = [.init(user: 10, system: 0, idle: 10, nice: 0), .init(user: 0, system: 0, idle: 50, nice: 0)]
+        b.cores = [.init(user: 30, system: 0, idle: 10, nice: 0), .init(user: 0, system: 5, idle: 65, nice: 0)]
+        let disk = DiskID(entry: 7, name: "disk0")
+        a.disks = [.init(id: disk, read: 1000, written: 400), .init(id: .init(entry: 9, name: "disk4"), read: nil, written: nil)]
+        b.disks = [.init(id: disk, read: 5000, written: 400), .init(id: .init(entry: 9, name: "disk4"), read: nil, written: nil)]
+        var frame = Snapshot(current: b, previous: a, interval: 2)
+        XCTAssertEqual(frame.cores, [100, 25])
+        XCTAssertEqual(frame.disks[0].readRate, 2000)
+        XCTAssertEqual(frame.disks[0].writeRate, 0)
+        XCTAssertNil(frame.disks[1].readRate)
+        var history = History()
+        history.add(frame, interface: nil)
+        XCTAssertEqual(history.points.last?.disks.first?.incoming, 2000)
+        // The same BSD name on a new registry entry is a reattached device and needs a new baseline.
+        b.disks = [.init(id: .init(entry: 8, name: "disk0"), read: 9000, written: 900)]
+        b.cores = [b.cores![0]]
+        frame = Snapshot(current: b, previous: a, interval: 2)
+        XCTAssertNil(frame.disks[0].readRate)
+        XCTAssertEqual(frame.cores, [nil])
+    }
 }

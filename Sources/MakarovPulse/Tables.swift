@@ -132,12 +132,13 @@ struct ProcessTreeTable: View {
 
 struct NetworkTable: View {
     let rows: [InterfaceRow]
+    @Binding var selection: InterfaceID?
     @State private var order = [KeyPathComparator(\InterfaceRow.receiveSort, order: .reverse)]
     @AppStorage("columns.network") private var columns = TableColumnCustomization<InterfaceRow>()
 
     var body: some View {
-        Table(rows.sorted(using: order + [KeyPathComparator(\InterfaceRow.name)]), sortOrder: $order,
-              columnCustomization: $columns) {
+        Table(rows.sorted(using: order + [KeyPathComparator(\InterfaceRow.name)]), selection: $selection,
+              sortOrder: $order, columnCustomization: $columns) {
             TableColumn("Interface", value: \.name).width(min: 135, ideal: 200).customizationID("name")
             TableColumn("Receive rate", value: \.receiveSort) { Text(Display.rate($0.receiveRate)) }
                 .customizationID("receiveRate")
@@ -147,6 +148,28 @@ struct NetworkTable: View {
                 .customizationID("received")
             TableColumn("Bytes sent", value: \.sent) { Text(Display.bytes($0.sent)) }
                 .customizationID("sent")
+        }
+    }
+}
+
+struct DiskTable: View {
+    let rows: [DiskRow]
+    @Binding var selection: DiskID?
+    @State private var order = [KeyPathComparator(\DiskRow.writeSort, order: .reverse)]
+    @AppStorage("columns.disks") private var columns = TableColumnCustomization<DiskRow>()
+
+    var body: some View {
+        Table(rows.sorted(using: order + [KeyPathComparator(\DiskRow.name)]), selection: $selection,
+              sortOrder: $order, columnCustomization: $columns) {
+            TableColumn("Device", value: \.name).width(min: 135, ideal: 200).customizationID("name")
+            TableColumn("Read rate", value: \.readSort) { Text(Display.rate($0.readRate)) }
+                .customizationID("readRate")
+            TableColumn("Write rate", value: \.writeSort) { Text(Display.rate($0.writeRate)) }
+                .customizationID("writeRate")
+            TableColumn("Bytes read", value: \.readTotalSort) { Text(Display.bytes($0.reading.read)) }
+                .customizationID("read")
+            TableColumn("Bytes written", value: \.writtenTotalSort) { Text(Display.bytes($0.reading.written)) }
+                .customizationID("written")
         }
     }
 }

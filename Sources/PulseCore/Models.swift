@@ -86,6 +86,50 @@ public struct InterfaceRow: Identifiable, Sendable {
     }
 }
 
+/// A block storage driver. The registry entry changes when a device is detached and attached again.
+public struct DiskID: Hashable, Sendable {
+    public let entry: UInt64
+    public let name: String
+    public init(entry: UInt64, name: String) {
+        self.entry = entry
+        self.name = name
+    }
+}
+
+public struct DiskReading: Identifiable, Sendable {
+    public let id: DiskID
+    /// Cumulative bytes. Nil when the driver publishes no statistics.
+    public let read, written: UInt64?
+    public init(id: DiskID, read: UInt64?, written: UInt64?) {
+        self.id = id
+        self.read = read
+        self.written = written
+    }
+}
+
+public struct DiskRow: Identifiable, Sendable {
+    public let reading: DiskReading
+    public let readRate: Double?
+    public let writeRate: Double?
+    public var id: DiskID { reading.id }
+    public var name: String { id.name }
+    public var readSort: Double { readRate ?? -1 }
+    public var writeSort: Double { writeRate ?? -1 }
+    public var readTotalSort: Int64 { reading.read.map { Int64(clamping: $0) } ?? -1 }
+    public var writtenTotalSort: Int64 { reading.written.map { Int64(clamping: $0) } ?? -1 }
+}
+
+/// Two directional rates of one device at one sample, in bytes per second.
+public struct Flow<ID: Hashable & Sendable>: Sendable {
+    public let id: ID
+    public let incoming, outgoing: Double?
+    public init(id: ID, incoming: Double?, outgoing: Double?) {
+        self.id = id
+        self.incoming = incoming
+        self.outgoing = outgoing
+    }
+}
+
 public struct HostTicks: Sendable {
     public let user, system, idle, nice: UInt32
     public init(user: UInt32, system: UInt32, idle: UInt32, nice: UInt32) {
@@ -101,6 +145,9 @@ public struct RawSample: Sendable {
     public var machTime: UInt64
     public var uptime: TimeInterval
     public var host: HostTicks?
+    /// One entry per logical core, in the kernel's processor order.
+    public var cores: [HostTicks]?
+    public var disks: [DiskReading]?
     public var wiredBytes: UInt64?
     public var totalRAM: UInt64
     public var volumeFreeBytes: UInt64?

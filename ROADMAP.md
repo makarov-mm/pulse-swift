@@ -12,6 +12,7 @@ The **0.1 source foundation** includes native sampling, three sortable views, a 
 | --- | --- |
 | M0 | Open. The sources have not been compiled or run on a Mac yet. |
 | M1 | Implemented in source: 1/5/15-minute history with per-sample CPU leaders, interval ranking, parent tree with collapsible branches, pinned instance timelines, stored sort order and column layout per view. Awaiting the M0 build and the M1 acceptance run. |
+| M2 | Implemented in source: per-logical-core graphs, receive/send graph for a selected interface, per-device read/write throughput from IOBlockStorageDriver statistics with a registry-entry identity. Awaiting the M0 build and the M2 acceptance run. |
 
 ## What fits macOS
 

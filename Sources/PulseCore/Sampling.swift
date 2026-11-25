@@ -5,6 +5,9 @@ public struct Snapshot: Sendable {
     public let hostCPU: Double?
     public let processes: [ProcessRow]
     public let interfaces: [InterfaceRow]
+    /// Busy percentage of each logical core, 0 to 100.
+    public let cores: [Double?]
+    public let disks: [DiskRow]
     public let startsSegment: Bool
     /// Awake seconds covered since the previous usable sample.
     public let elapsed: TimeInterval?
@@ -21,13 +24,11 @@ public struct Snapshot: Sendable {
         }
         startsSegment = prior == nil
         elapsed = prior.map { current.uptime - $0.uptime }
-        if let a = prior?.host, let b = current.host,
-           b.user >= a.user, b.system >= a.system, b.idle >= a.idle, b.nice >= a.nice {
-            let busy = Double(b.user - a.user) + Double(b.system - a.system) + Double(b.nice - a.nice)
-            let total = busy + Double(b.idle - a.idle)
-            hostCPU = total > 0 ? 100 * busy / total : nil
+        hostCPU = prior?.host.flatMap { old in current.host.flatMap { Self.busy(from: old, to: $0) } }
+        if let old = prior?.cores, let now = current.cores, old.count == now.count {
+            cores = zip(old, now).map { Self.busy(from: $0, to: $1) }
         } else {
-            hostCPU = nil
+            cores = (current.cores ?? []).map { _ in nil }
         }
 
         let totals = Dictionary((prior?.processes ?? []).compactMap { row in
@@ -51,6 +52,23 @@ public struct Snapshot: Sendable {
             }
             return InterfaceRow(reading: reading, receiveRate: rate(\.received), sendRate: rate(\.sent))
         }
+        let devices = Dictionary((prior?.disks ?? []).map { ($0.id, $0) }, uniquingKeysWith: { _, newer in newer })
+        disks = (current.disks ?? []).map { reading in
+            func rate(_ key: KeyPath<DiskReading, UInt64?>) -> Double? {
+                guard let prior, let old = devices[reading.id]?[keyPath: key],
+                      let now = reading[keyPath: key], now >= old else { return nil }
+                return Double(now - old) / (current.uptime - prior.uptime)
+            }
+            return DiskRow(reading: reading, readRate: rate(\.read), writeRate: rate(\.written))
+        }
+    }
+
+    /// Busy share between two cumulative tick readings. Nil after a counter went backwards.
+    static func busy(from a: HostTicks, to b: HostTicks) -> Double? {
+        guard b.user >= a.user, b.system >= a.system, b.idle >= a.idle, b.nice >= a.nice else { return nil }
+        let busy = Double(b.user - a.user) + Double(b.system - a.system) + Double(b.nice - a.nice)
+        let total = busy + Double(b.idle - a.idle)
+        return total > 0 ? 100 * busy / total : nil
     }
 }
 
