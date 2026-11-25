@@ -81,7 +81,7 @@ For development, open `Package.swift` in Xcode and select the **MakarovPulse** e
 
 | Machine | What was checked |
 | --- | --- |
-| Apple silicon, macOS 27.2.1, Xcode 27.2 | All 13 tests passed. Native and universal release bundles passed strict ad-hoc signature verification. Both arm64 and x86_64 slices were verified in the universal bundle. |
+| Apple silicon, macOS 27.2.1, Xcode 27.2 | All 14 tests passed. Native and universal release bundles passed strict ad-hoc signature verification. Both arm64 and x86_64 slices were verified in the universal bundle. |
 | GitHub Actions `macos-15` runner | `swift test` and `scripts/build-app.sh` on every push. |
 
 On the same Mac, the live checks covered folder navigation, capture export and replay, a confirmed Quit, and sleep and wake. The remaining release checks include a physical Intel Mac, macOS 14, and a notarized download on a clean Mac. [Acceptance results and known issues](ROADMAP.md#local-acceptance-results)

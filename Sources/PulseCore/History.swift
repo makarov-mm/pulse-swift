@@ -74,6 +74,11 @@ public struct History: Sendable {
     public private(set) var pinned: [PinnedSeries] = []
     public init() {}
 
+    /// Start of the retained timeline, including the first rate period if its baseline was evicted.
+    public var startTime: Date? {
+        points.first.map { $0.time.addingTimeInterval(-($0.elapsed ?? 0)) }
+    }
+
     /// Rebuilds the host series and leaders of a saved capture for offline ranking.
     public init(replaying capture: Capture) {
         points = capture.samples.map {
@@ -153,8 +158,14 @@ public struct History: Sendable {
         }
         var measured = 0.0, hostBusy = 0.0, hostSeconds = 0.0
         var totals: [ProcessID: Total] = [:]
-        for point in points where point.time >= start && point.time <= end {
-            guard let span = point.elapsed, span > 0 else { continue }
+        var sampleStart = startTime ?? start
+        for point in points {
+            defer { sampleStart = point.time }
+            guard let elapsed = point.elapsed, elapsed > 0 else { continue }
+            let overlap = min(end, point.time).timeIntervalSince(max(start, sampleStart))
+            guard overlap > 0 else { continue }
+            // Each rate averages the preceding period. Prorate its awake time by the wall-clock overlap.
+            let span = elapsed * (overlap / point.time.timeIntervalSince(sampleStart))
             measured += span
             if let cpu = point.cpu {
                 hostBusy += cpu * span

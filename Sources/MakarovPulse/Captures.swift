@@ -100,7 +100,7 @@ struct CapturesPane: View {
 
     @ViewBuilder private func replay(_ loaded: CaptureModel.Loaded) -> some View {
         let points = loaded.history.points
-        let start = points.first?.time ?? .distantPast, end = points.last?.time ?? .distantFuture
+        let start = loaded.history.startTime ?? .distantPast, end = points.last?.time ?? .distantFuture
         Text(describe(loaded)).font(.callout).textSelection(.enabled)
         MetricCard(title: "Host CPU", value: Display.percent(loaded.history.summary(from: start, to: end).hostCPU),
                    detail: "Average of the whole capture · drag to rank an interval", color: .accentColor,

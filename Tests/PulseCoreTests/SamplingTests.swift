@@ -96,7 +96,7 @@ final class SamplingTests: XCTestCase {
         for i in 1...60 {
             var sample = raw(Double(i))
             sample.listedProcesses = 1
-            // The worker burns one core during seconds 11...30, then its PID is reused by an idle process.
+            // The worker burns one core from t=10 to t=30, then its PID is reused by an idle process.
             if i <= 30 {
                 sample.processes = [process(i <= 10 ? 0 : UInt64(i - 10) * 100)]
             } else {
@@ -108,7 +108,7 @@ final class SamplingTests: XCTestCase {
             history.add(Snapshot(current: sample, previous: last, interval: 1), interface: nil)
             last = sample
         }
-        let start = Date(timeIntervalSince1970: 1011), end = Date(timeIntervalSince1970: 1030)
+        let start = Date(timeIntervalSince1970: 1010), end = Date(timeIntervalSince1970: 1030)
         let summary = history.summary(from: start, to: end)
         XCTAssertEqual(summary.measuredSeconds, 20, accuracy: 0.001)
         XCTAssertEqual(summary.leaders.first?.id, worker)
@@ -120,6 +120,71 @@ final class SamplingTests: XCTestCase {
         XCTAssertEqual(series.id, worker)
         XCTAssertEqual(series.samples.last?.time, Date(timeIntervalSince1970: 1030))
         XCTAssertEqual(series.exited, Date(timeIntervalSince1970: 1031))
+    }
+
+    func testSelectedIntervalClipsCPUTimeInLiveAndSavedHistory() throws {
+        func sample(at time: Double, ticks: UInt64, busy: UInt32, idle: UInt32) -> RawSample {
+            var reading = raw(time)
+            reading.processes = [process(ticks)]
+            reading.host = .init(user: busy, system: 0, idle: idle, nice: 0)
+            return reading
+        }
+        let baseline = sample(at: 5, ticks: 0, busy: 0, idle: 0)
+        var afterGap = sample(at: 65, ticks: 2250, busy: 200, idle: 200)
+        afterGap.date = afterGap.date.addingTimeInterval(5) // Five awake seconds over ten wall-clock seconds.
+        let readings = [
+            sample(at: 10, ticks: 1000, busy: 50, idle: 50),  // 200% process, 50% host
+            sample(at: 15, ticks: 1500, busy: 70, idle: 130), // 100% process, 20% host
+            sample(at: 20, ticks: 1750, busy: 150, idle: 150), // 50% process, 80% host
+            sample(at: 60, ticks: 1750, busy: 150, idle: 150), // gap
+            afterGap
+        ]
+        var live = History()
+        var previous = baseline // A rolling history can start with an already measured sample.
+        for reading in readings {
+            live.add(Snapshot(current: reading, previous: previous, interval: 5), interface: nil)
+            previous = reading
+        }
+        let capture = Capture(history: live, intervalSeconds: 5,
+                              machine: .init(osVersion: "14", architecture: "arm64", model: nil,
+                                             logicalCores: 4, memoryBytes: 1024),
+                              coverage: .init(readableProcesses: 1, listedProcesses: 1,
+                                              leadersPerSample: History.leaderCount),
+                              executables: nil, app: "Test")
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        try capture.encoded().write(to: file, options: .atomic)
+        let reopened = History(replaying: try Capture.decode(Data(contentsOf: file)))
+
+        for (source, history) in [("live", live), ("reopened", reopened)] {
+            func summary(_ start: Double, _ end: Double) -> IntervalSummary {
+                history.summary(from: raw(start).date, to: raw(end).date)
+            }
+            XCTAssertEqual(history.startTime, baseline.date, source)
+            let cases: [(start: Double, end: Double, measured: Double, cpuSeconds: Double, host: Double, peak: Double)] = [
+                (8, 10, 2, 4, 50, 200),           // first retained sample
+                (10, 11, 1, 1, 20, 100),          // starts exactly on a sample
+                (11.25, 13.75, 2.5, 2.5, 20, 100), // both bounds between observations
+                (10, 15, 5, 5, 20, 100),          // both bounds on observations
+                (13, 18, 5, 3.5, 56, 100),        // two seconds at 100%, three at 50%
+                (62, 66, 2, 2, 50, 100)           // four wall-clock seconds, two awake seconds
+            ]
+            for item in cases {
+                let label = "\(source) \(item.start)...\(item.end)"
+                let result = summary(item.start, item.end)
+                XCTAssertEqual(result.measuredSeconds, item.measured, accuracy: 1e-6, label)
+                XCTAssertEqual(try XCTUnwrap(result.hostCPU, label), item.host, accuracy: 1e-6, label)
+                let worker = try XCTUnwrap(result.leaders.first, label)
+                XCTAssertEqual(worker.cpuSeconds, item.cpuSeconds, accuracy: 1e-6, label)
+                XCTAssertEqual(worker.averageCPU, 100 * item.cpuSeconds / item.measured, accuracy: 1e-6, label)
+                XCTAssertEqual(worker.peakCPU, item.peak, accuracy: 1e-6, label)
+            }
+            for empty in [summary(10, 10), summary(20, 60)] {
+                XCTAssertEqual(empty.measuredSeconds, 0, source)
+                XCTAssertNil(empty.hostCPU, source)
+                XCTAssertTrue(empty.leaders.isEmpty, source)
+            }
+        }
     }
 
     func testTreeKeepsParentChainAndRejectsYoungerParent() {
