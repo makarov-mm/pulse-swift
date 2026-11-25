@@ -77,4 +77,13 @@ For development, open `Package.swift` in Xcode and select the **MakarovPulse** e
 | `Tests/` | Deterministic model tests, and macOS tests that inspect the test process, a loopback socket and a folder fixture. |
 | `Packaging/`, `scripts/` | Bundle metadata and local app packaging. |
 
-**Build status.** The package builds with Xcode on macOS 27 (Apple silicon), and `swift test` passes: ten model tests and three native tests. The window was opened and its views were walked through once on that machine. The Folder and Captures file dialogs, the controlled acceptance runs in [ROADMAP.md](ROADMAP.md), an Intel build and the minimum macOS 14 release are still open.
+## Verified configurations
+
+| Machine | What was checked |
+| --- | --- |
+| Apple silicon, macOS 27, current Xcode | `swift test` (ten model tests, three native tests). The window was opened and its views were walked through once. |
+| GitHub Actions `macos-15` runner | `swift test` and `scripts/build-app.sh` on every push. |
+
+Not checked yet: an Intel Mac, a universal build, the minimum macOS 14 release, a signed and notarized copy on a clean Mac, and the controlled acceptance runs in [ROADMAP.md](ROADMAP.md).
+
+Observed restriction: without elevated rights, macOS gives CPU, memory and thread counters only for the current user's processes. Processes of other users are listed with identity only.
