@@ -4,7 +4,10 @@ import Foundation
 import PulseCore
 
 public struct ThreadDetail: Identifiable, Sendable {
+    /// Kernel handle of the thread. It identifies the row and is not meant for display.
     public let id: UInt64
+    /// Position in the process's thread list, starting at 1.
+    public let number: Int
     public let name: String
     /// Recent CPU use of this thread as a percentage of one core.
     public let cpu: Double
@@ -77,10 +80,11 @@ extension MacSampler {
         guard bytes > 0 else { return nil }
         let size = Int32(MemoryLayout<proc_threadinfo>.size)
         let states = [1: "Running", 2: "Stopped", 3: "Waiting", 4: "Uninterruptible", 5: "Halted"]
-        return handles.prefix(Int(bytes) / MemoryLayout<UInt64>.stride).compactMap { handle in
+        let listed = handles.prefix(Int(bytes) / MemoryLayout<UInt64>.stride)
+        return listed.enumerated().compactMap { (index: Int, handle: UInt64) -> ThreadDetail? in
             var info = proc_threadinfo()
             guard proc_pidinfo(pid, PROC_PIDTHREADINFO, handle, &info, size) == size else { return nil }
-            return ThreadDetail(id: handle, name: name(info.pth_name),
+            return ThreadDetail(id: handle, number: index + 1, name: name(info.pth_name),
                                 cpu: Double(info.pth_cpu_usage) / 10,  // TH_USAGE_SCALE is 1000
                                 cpuSeconds: Double(info.pth_user_time + info.pth_system_time) / 1_000_000_000,
                                 state: states[Int(info.pth_run_state)] ?? "Unknown")

@@ -46,7 +46,7 @@ struct ProcessDetailsView: View {
         if let threads = details.threads {
             ForEach(busiest(threads)) { thread in
                 HStack {
-                    Text(thread.name.isEmpty ? "Thread \(String(thread.id))" : thread.name).lineLimit(1)
+                    Text(thread.name.isEmpty ? "Thread \(thread.number)" : thread.name).lineLimit(1)
                     Spacer()
                     Text("\(thread.state) · \(Display.percent(thread.cpu))").foregroundStyle(.secondary)
                 }
@@ -109,13 +109,14 @@ struct QuitButton: View {
     @State private var confirming = false
     @State private var message: String?
 
-    /// Only regular apps owned by the current user whose launch time matches the inspected instance.
+    /// Only regular apps owned by the current user. An app registers with the system some time after
+    /// its process starts, so a launch date before the process start means the PID changed hands.
     private var application: NSRunningApplication? {
         guard row.uid == getuid(), let app = NSRunningApplication(processIdentifier: row.pid),
               app.activationPolicy == .regular, !app.isTerminated,
-              app.processIdentifier != ProcessInfo.processInfo.processIdentifier,
-              let launched = app.launchDate, abs(launched.timeIntervalSince(row.id.started)) < 5
+              app.processIdentifier != ProcessInfo.processInfo.processIdentifier
         else { return nil }
+        if let launched = app.launchDate, launched.timeIntervalSince(row.id.started) < -5 { return nil }
         return app
     }
 
