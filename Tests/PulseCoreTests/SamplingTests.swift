@@ -166,4 +166,21 @@ final class SamplingTests: XCTestCase {
         XCTAssertNil(frame.disks[0].readRate)
         XCTAssertEqual(frame.cores, [nil])
     }
+
+    func testTreemapCoversTheAreaInProportion() {
+        let weights: [Double] = [6, 6, 4, 3, 2, 2, 1, 0]
+        let rects = Treemap.layout(weights, width: 6, height: 4)
+        XCTAssertEqual(rects.count, weights.count)
+        for (weight, rect) in zip(weights, rects) {
+            XCTAssertEqual(rect.width * rect.height, weight, accuracy: 1e-9)
+            XCTAssertGreaterThanOrEqual(rect.x, -1e-9)
+            XCTAssertGreaterThanOrEqual(rect.y, -1e-9)
+            XCTAssertLessThanOrEqual(rect.x + rect.width, 6 + 1e-9)
+            XCTAssertLessThanOrEqual(rect.y + rect.height, 4 + 1e-9)
+        }
+        // The two largest entries share the first column of the classic squarified example.
+        XCTAssertEqual(rects[0], TreemapRect(x: 0, y: 0, width: 3, height: 2))
+        XCTAssertEqual(rects[1], TreemapRect(x: 0, y: 2, width: 3, height: 2))
+        XCTAssertTrue(Treemap.layout([], width: 6, height: 4).isEmpty)
+    }
 }

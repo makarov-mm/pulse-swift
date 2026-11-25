@@ -3,7 +3,7 @@ import PulseCore
 
 private enum Pane: String, CaseIterable, Identifiable {
     case processes = "Processes", tree = "Tree", details = "Details"
-    case cores = "Cores", disks = "Disks", network = "Network"
+    case cores = "Cores", disks = "Disks", network = "Network", folder = "Folder"
 
     var listsProcesses: Bool { self == .processes || self == .tree || self == .details }
     var id: Self { self }
@@ -11,6 +11,7 @@ private enum Pane: String, CaseIterable, Identifiable {
 
 struct MonitorWindow: View {
     @StateObject private var monitor = Monitor()
+    @StateObject private var folder = FolderModel()
     @State private var pane = Pane.processes
     @State private var query = ""
     @State private var interfaceQuery = ""
@@ -89,9 +90,9 @@ struct MonitorWindow: View {
             Picker("View", selection: $pane) {
                 ForEach(Pane.allCases) { Text($0.rawValue).tag($0) }
             }
-            .labelsHidden().pickerStyle(.segmented).frame(maxWidth: 560)
+            .labelsHidden().pickerStyle(.segmented).frame(maxWidth: 640)
             Spacer()
-            if pane != .cores {
+            if pane != .cores && pane != .folder {
                 TextField(filterPrompt, text: filterText)
                     .textFieldStyle(.roundedBorder).frame(width: 202)
                     .focused($searching).accessibilityLabel("Filter table")
@@ -148,6 +149,8 @@ struct MonitorWindow: View {
                           unpin: { pinnedDisk = nil })
             }
             DiskTable(rows: disks, selection: $pinnedDisk)
+        case .folder:
+            FolderPane(model: folder)
         case .cores:
             CoreGrid(points: monitor.history.points, latest: monitor.snapshot?.cores ?? [], window: window)
         default:
@@ -200,6 +203,8 @@ struct MonitorWindow: View {
                 : "\(frame.disks.count) storage devices · select one to graph read and write"
         case .cores:
             return "\(frame.cores.count) logical cores"
+        case .folder:
+            return "Sizes come from file metadata · links are not followed · other volumes are not entered"
         default:
             guard let total = frame.raw.listedProcesses else { return "Process list unavailable" }
             return "\(processes.count) matching · \(frame.processes.count) readable of \(total) listed"

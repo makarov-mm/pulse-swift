@@ -13,6 +13,7 @@ The **0.1 source foundation** includes native sampling, three sortable views, a 
 | M0 | Open. The sources have not been compiled or run on a Mac yet. |
 | M1 | Implemented in source: 1/5/15-minute history with per-sample CPU leaders, interval ranking, parent tree with collapsible branches, pinned instance timelines, stored sort order and column layout per view. Awaiting the M0 build and the M1 acceptance run. |
 | M2 | Implemented in source: per-logical-core graphs, receive/send graph for a selected interface, per-device read/write throughput from IOBlockStorageDriver statistics with a registry-entry identity. Awaiting the M0 build and the M2 acceptance run. |
+| M3 | Implemented in source: folder picker, cancellable background scan from file metadata, squarified treemap, sortable child list, drill-down, breadcrumb and parent navigation, Finder reveal, logical and allocated bytes, partial totals. Policy: links are not followed, packages are entered, other volumes and undownloaded cloud folders are listed and not entered, a hard link is counted once. APFS clones are counted in full at every path. Awaiting the M0 build and the M3 acceptance run. |
 
 ## What fits macOS
 

@@ -35,6 +35,7 @@ The script builds for the current Mac’s architecture and ad-hoc signs the loca
 - Choose **Cores** for one graph per logical core.
 - Choose **Disks** for cumulative bytes and read/write rates per storage device. Select a device to graph both directions. A device whose driver publishes no statistics shows —. These are transfer rates. The Disk space card stays a capacity reading.
 - Choose **Network** to see measured interfaces that are up and non-loopback. The filter accepts interface names such as `en0`. Select an interface to graph its receive and send rates. A VPN tunnel and its underlying interface can both carry the same traffic.
+- Choose **Folder**, then **Choose Folder…** to see where a folder's space went. The treemap and the list show the same entries. Click to select, double-click a folder to open it, and use the breadcrumb to go back. **On disk** counts allocated blocks and **File length** counts logical bytes. Symbolic links are not followed, other volumes and undownloaded cloud folders are not entered, and a hard-linked file is counted once. APFS clones share blocks, so On disk can exceed the space that deleting an entry would free. A warning marks totals that leave out unreadable locations.
 - Choose a one-, two- or five-second refresh interval. **⇧⌘P** pauses or resumes updates. After resuming, the first sample establishes a new baseline.
 - Choose **Makarov Pulse → About Makarov Pulse** for the version and developer credit. The English interface follows the system appearance and accent.
 
@@ -46,7 +47,7 @@ The script builds for the current Mac’s architecture and ad-hoc signs the loca
 | Process CPU | CPU time consumed between observations. One fully occupied logical core gives about 100%. A multithreaded process can exceed it. |
 | Wired memory | Wired pages multiplied by the system page size. The denominator is installed physical RAM. |
 | Resident memory | Resident bytes reported for the task. Pages can be shared. Adding every row would count some pages more than once. |
-| Disk space | Available capacity on the startup **data** volume. This card measures bytes of available space. Disk throughput and folder scanning are planned separately. |
+| Disk space | Available capacity on the startup **data** volume. This card measures bytes of available space. Disk throughput is in the Disks view and folder sizes are in the Folder view. |
 | Network | Change in cumulative 64-bit interface byte counters divided by elapsed time. The card uses the busiest readable interface’s combined rate. Its graph breaks when the selected interface changes. |
 | — | A baseline is still forming, a counter reset, or the OS withheld a reading. The status line shows how many listed processes could be identified. |
 
