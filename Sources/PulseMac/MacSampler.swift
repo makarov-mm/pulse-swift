@@ -32,13 +32,13 @@ public actor MacSampler {
     }
 
     public func executable(for id: ProcessID) -> URL? {
-        guard let before = bsdInfo(id.pid), identity(before) == id else { return nil }
+        guard currentIdentity(id.pid) == id else { return nil }
         // proc_pidpath accepts a buffer up to four MAXPATHLENs.
         var buffer = [UInt8](repeating: 0, count: 4 * Int(MAXPATHLEN))
         let length = buffer.withUnsafeMutableBytes {
             proc_pidpath(id.pid, $0.baseAddress, UInt32($0.count))
         }
-        guard length > 0, let after = bsdInfo(id.pid), identity(after) == id else { return nil }
+        guard length > 0, currentIdentity(id.pid) == id else { return nil }
         let bytes = buffer.prefix { $0 != 0 }
         guard let path = String(bytes: bytes, encoding: .utf8), path.hasPrefix("/") else { return nil }
         return URL(fileURLWithPath: path)
@@ -111,7 +111,7 @@ public actor MacSampler {
         let bytes = Int32(MemoryLayout.size(ofValue: all))
         let hasTask = proc_pidinfo(pid, PROC_PIDTASKALLINFO, 0, &all, bytes) == bytes
         guard let bsd = hasTask ? all.pbsd : bsdInfo(pid),
-              bsd.pbi_pid == UInt32(bitPattern: pid) else { return nil }
+              bsd.pbi_pid == UInt32(bitPattern: pid) else { return kernelReading(pid) }
         let longName = name(bsd.pbi_name)
         let shortName = name(bsd.pbi_comm)
         let display = longName.isEmpty ? shortName : longName
@@ -121,6 +121,35 @@ public actor MacSampler {
                               residentBytes: hasTask ? task.pti_resident_size : nil,
                               threads: hasTask ? Int(task.pti_threadnum) : nil,
                               cpuTicks: hasTask ? task.pti_total_user + task.pti_total_system : nil)
+    }
+
+    /// PID and start time of whatever process holds this PID now, from the richest readable source.
+    func currentIdentity(_ pid: Int32) -> ProcessID? {
+        bsdInfo(pid).map { identity($0) } ?? kernelReading(pid)?.id
+    }
+
+    /// Identity of a process that libproc will not describe, typically one owned by another user.
+    /// The kernel process table gives parent, owner, start time and a short name, and no counters.
+    private func kernelReading(_ pid: Int32) -> ProcessReading? {
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        guard sysctl(&mib, u_int(mib.count), &info, &size, nil, 0) == 0, size > 0,
+              info.kp_proc.p_pid == pid else { return nil }
+        let start = info.kp_proc.p_un.__p_starttime
+        var label = name(info.kp_proc.p_comm)
+        // The short name is cut at 16 bytes. The executable's file name is complete when it is readable.
+        var buffer = [UInt8](repeating: 0, count: 4 * Int(MAXPATHLEN))
+        let length = buffer.withUnsafeMutableBytes { proc_pidpath(pid, $0.baseAddress, UInt32($0.count)) }
+        if length > 0, let path = String(bytes: buffer.prefix { $0 != 0 }, encoding: .utf8),
+           let file = path.split(separator: "/").last {
+            label = String(file)
+        }
+        return ProcessReading(id: ProcessID(pid: pid, startSeconds: UInt64(max(0, start.tv_sec)),
+                                            startMicroseconds: UInt64(max(0, start.tv_usec))),
+                              parent: info.kp_eproc.e_ppid, uid: info.kp_eproc.e_ucred.cr_uid,
+                              name: label.isEmpty ? "PID \(pid)" : label,
+                              residentBytes: nil, threads: nil, cpuTicks: nil)
     }
 
     private func networkCounters() -> [InterfaceReading]? {

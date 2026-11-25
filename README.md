@@ -62,7 +62,7 @@ For development, open `Package.swift` in Xcode and select the **MakarovPulse** e
 | Resident memory | Resident bytes reported for the task. Pages can be shared. Adding every row would count some pages more than once. |
 | Disk space | Available capacity on the startup **data** volume. This card measures bytes of available space. Disk throughput is in the Disks view and folder sizes are in the Folder view. |
 | Network | Change in cumulative 64-bit interface byte counters divided by elapsed time. The card uses the busiest readable interface’s combined rate. Its graph breaks when the selected interface changes. |
-| — | A baseline is still forming, a counter reset, or the OS withheld a reading. The status line shows how many listed processes could be identified. |
+| — | A baseline is still forming, a counter reset, or the OS withheld a reading. Processes of other users are listed with their parent, owner and start time, and show — for CPU and memory. The status line shows how many listed processes were identified and how many have counters. |
 
 ## Project layout
 
@@ -75,4 +75,4 @@ For development, open `Package.swift` in Xcode and select the **MakarovPulse** e
 | `Tests/` | Deterministic model tests, and macOS tests that inspect the test process, a loopback socket and a folder fixture. |
 | `Packaging/`, `scripts/` | Bundle metadata and local app packaging. |
 
-**Build status.** The package builds with Xcode on macOS 27 (Apple silicon), and `swift test` passes: ten model tests and three native tests. The window itself has not been exercised yet. The acceptance runs in [ROADMAP.md](ROADMAP.md) are still open, as are an Intel build and the minimum macOS 14 release.
+**Build status.** The package builds with Xcode on macOS 27 (Apple silicon), and `swift test` passes: ten model tests and three native tests. The window was opened and its views were walked through once on that machine. The Folder and Captures file dialogs, the controlled acceptance runs in [ROADMAP.md](ROADMAP.md), an Intel build and the minimum macOS 14 release are still open.

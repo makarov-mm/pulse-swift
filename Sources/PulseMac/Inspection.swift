@@ -66,7 +66,7 @@ extension MacSampler {
 
     /// True while the PID still belongs to the same process instance.
     public func isCurrent(_ id: ProcessID) -> Bool {
-        bsdInfo(id.pid).map { identity($0) == id } ?? false
+        currentIdentity(id.pid) == id
     }
 
     private func threadDetails(_ pid: Int32) -> [ThreadDetail]? {

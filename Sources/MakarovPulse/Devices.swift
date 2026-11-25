@@ -16,7 +16,7 @@ struct CoreGrid: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
                     ForEach(latest.indices, id: \.self) { core in
                         MetricCard(title: "Core \(core)", value: Display.percent(latest[core]),
-                                   detail: "Busy share of this logical core", color: .accentColor,
+                                   detail: "Busy share", color: .accentColor,
                                    samples: samples(core), window: window, ceiling: 100,
                                    spoken: { Display.percent($0) })
                     }

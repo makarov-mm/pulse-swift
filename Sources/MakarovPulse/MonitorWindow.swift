@@ -37,6 +37,16 @@ struct MonitorWindow: View {
                 Text("System overview").font(.largeTitle.weight(.semibold))
                 Spacer()
                 if monitor.paused { Label("Paused", systemImage: "pause.fill").foregroundStyle(.secondary) }
+                Picker("History", selection: $monitor.window) {
+                    Text("1 min").tag(60)
+                    Text("5 min").tag(300)
+                    Text("15 min").tag(900)
+                }
+                .fixedSize().help("Time span of the graphs")
+                Picker("Refresh", selection: $monitor.interval) {
+                    ForEach([1, 2, 5], id: \.self) { Text("\($0) s").tag($0) }
+                }
+                .fixedSize().help("Sampling interval")
             }
             overview
             if let span {
@@ -56,16 +66,6 @@ struct MonitorWindow: View {
         .padding(18)
         .frame(minWidth: 900, minHeight: 510)
         .toolbar {
-            Picker("History", selection: $monitor.window) {
-                Text("1 min").tag(60)
-                Text("5 min").tag(300)
-                Text("15 min").tag(900)
-            }
-            .help("Time span of the graphs")
-            Picker("Refresh interval", selection: $monitor.interval) {
-                ForEach([1, 2, 5], id: \.self) { Text("\($0) s").tag($0) }
-            }
-            .help("Sampling interval")
             Button {
                 monitor.paused.toggle()
             } label: {
@@ -220,7 +220,8 @@ struct MonitorWindow: View {
             return "Sizes come from file metadata · links are not followed · other volumes are not entered"
         default:
             guard let total = frame.raw.listedProcesses else { return "Process list unavailable" }
-            return "\(processes.count) matching · \(frame.processes.count) readable of \(total) listed"
+            let measured = frame.processes.filter { $0.reading.cpuTicks != nil }.count
+            return "\(processes.count) matching · \(frame.processes.count) identified of \(total) listed · \(measured) with counters"
         }
     }
 
