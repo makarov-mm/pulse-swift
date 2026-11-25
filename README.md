@@ -1,6 +1,8 @@
 # Makarov Pulse for macOS
 
-A native SwiftUI system monitor by **Mykhailo Makarov**. The live resource graphs stay above the process list while you search, sort, or inspect a worker. The first release target is macOS 14 or later on Apple silicon and Intel.
+A native SwiftUI port of [Makarov Pulse for Windows](https://github.com/makarov-mm/pulse) by **Mykhailo Makarov**. The live resource graphs stay above the process list while you search, sort, or inspect a worker. The first release target is macOS 14 or later on Apple silicon and Intel.
+
+![The Cores view in Makarov Pulse for macOS shows ten logical cores below the system CPU, wired memory, disk space and network graphs](docs/images/overview.png)
 
 ## Why open Pulse alongside Activity Monitor?
 
@@ -10,7 +12,7 @@ A native SwiftUI system monitor by **Mykhailo Makarov**. The live resource graph
 | Which process instance am I inspecting? | Search by name or exact PID, then select a row. The inspector follows both PID and start time. When the executable is accessible, reveal it in Finder. |
 | Is network activity on Wi-Fi, a tunnel, or another interface? | The Network card names the busiest measured interface. Switch to Network to compare receive and send rates for individual interface names. |
 
-The Windows edition inspired the arrangement. On macOS, host CPU use, process CPU use, wired memory, resident memory and disk capacity answer different questions. The table below gives their units. Apple's Activity Monitor guide describes how macOS distinguishes memory categories and pressure. [Apple’s memory guide](https://support.apple.com/guide/activity-monitor/actmntr1004/mac)
+On macOS, host CPU use, process CPU use, wired memory, resident memory and disk capacity answer different questions. The table below gives their units. Apple's Activity Monitor guide describes how macOS distinguishes memory categories and pressure. [Apple’s memory guide](https://support.apple.com/guide/activity-monitor/actmntr1004/mac)
 
 ## Build and run on a Mac
 

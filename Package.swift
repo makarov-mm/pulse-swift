@@ -12,7 +12,8 @@ products.append(.executable(name: "MakarovPulse", targets: ["MakarovPulse"]))
 targets += [
     .systemLibrary(name: "DarwinHeaders"),
     .target(name: "PulseMac", dependencies: ["PulseCore", "DarwinHeaders"]),
-    .executableTarget(name: "MakarovPulse", dependencies: ["PulseCore", "PulseMac"]),
+    .executableTarget(name: "MakarovPulse", dependencies: ["PulseCore", "PulseMac"],
+                      resources: [.copy("Resources/AppIcon.icns")]),
     .testTarget(name: "PulseMacTests", dependencies: ["PulseMac", "PulseCore"])
 ]
 #endif
