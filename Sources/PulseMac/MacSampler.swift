@@ -34,7 +34,7 @@ public actor MacSampler {
     public func executable(for id: ProcessID) -> URL? {
         guard let before = bsdInfo(id.pid), identity(before) == id else { return nil }
         // proc_pidpath accepts a buffer up to four MAXPATHLENs.
-        var buffer = [UInt8](repeating: 0, count: Int(PROC_PIDPATHINFO_MAXSIZE))
+        var buffer = [UInt8](repeating: 0, count: 4 * Int(MAXPATHLEN))
         let length = buffer.withUnsafeMutableBytes {
             proc_pidpath(id.pid, $0.baseAddress, UInt32($0.count))
         }
