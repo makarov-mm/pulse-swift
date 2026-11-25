@@ -87,12 +87,12 @@ public actor MacSampler {
         return nil
     }
 
-    private func identity(_ info: proc_bsdinfo) -> ProcessID {
+    func identity(_ info: proc_bsdinfo) -> ProcessID {
         ProcessID(pid: Int32(bitPattern: info.pbi_pid), startSeconds: info.pbi_start_tvsec,
                   startMicroseconds: info.pbi_start_tvusec)
     }
 
-    private func bsdInfo(_ pid: Int32) -> proc_bsdinfo? {
+    func bsdInfo(_ pid: Int32) -> proc_bsdinfo? {
         var info = proc_bsdinfo()
         let bytes = Int32(MemoryLayout.size(ofValue: info))
         guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, bytes) == bytes,
@@ -100,7 +100,7 @@ public actor MacSampler {
         return info
     }
 
-    private func name<T>(_ field: T) -> String {
+    func name<T>(_ field: T) -> String {
         withUnsafeBytes(of: field) { raw in
             String(decoding: raw.prefix { $0 != 0 }, as: UTF8.self)
         }

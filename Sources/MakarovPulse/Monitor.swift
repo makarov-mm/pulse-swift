@@ -59,6 +59,17 @@ enum Display {
         return bytes(UInt64(max(0, value).rounded())) + "/s"
     }
 
+    private static var users: [UInt32: String] = [:]
+
+    /// Short user name for a numeric user ID. Falls back to the number.
+    @MainActor static func user(_ uid: UInt32) -> String {
+        if let known = users[uid] { return known }
+        var name = String(uid)
+        if let entry = getpwuid(uid), let raw = entry.pointee.pw_name { name = String(cString: raw) }
+        users[uid] = name
+        return name
+    }
+
     static func clock(_ date: Date) -> String {
         date.formatted(date: .omitted, time: .standard)
     }

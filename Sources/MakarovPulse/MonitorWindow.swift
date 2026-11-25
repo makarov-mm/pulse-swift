@@ -3,7 +3,7 @@ import PulseCore
 
 private enum Pane: String, CaseIterable, Identifiable {
     case processes = "Processes", tree = "Tree", details = "Details"
-    case cores = "Cores", disks = "Disks", network = "Network", folder = "Folder"
+    case cores = "Cores", disks = "Disks", network = "Network", folder = "Folder", startup = "Startup"
 
     var listsProcesses: Bool { self == .processes || self == .tree || self == .details }
     var id: Self { self }
@@ -18,6 +18,7 @@ struct MonitorWindow: View {
     @State private var selected: ProcessID?
     @State private var span: ClosedRange<Date>?
     @State private var diskQuery = ""
+    @State private var startupQuery = ""
     @State private var pinnedInterface: InterfaceID?
     @State private var pinnedDisk: DiskID?
     @FocusState private var searching: Bool
@@ -90,7 +91,7 @@ struct MonitorWindow: View {
             Picker("View", selection: $pane) {
                 ForEach(Pane.allCases) { Text($0.rawValue).tag($0) }
             }
-            .labelsHidden().pickerStyle(.segmented).frame(maxWidth: 640)
+            .labelsHidden().pickerStyle(.segmented).frame(maxWidth: 720)
             Spacer()
             if pane != .cores && pane != .folder {
                 TextField(filterPrompt, text: filterText)
@@ -107,6 +108,7 @@ struct MonitorWindow: View {
         switch pane {
         case .network: return "Find an interface"
         case .disks: return "Find a device"
+        case .startup: return "Find a label or program"
         default: return "Find a name or PID"
         }
     }
@@ -115,6 +117,7 @@ struct MonitorWindow: View {
         switch pane {
         case .network: return $interfaceQuery
         case .disks: return $diskQuery
+        case .startup: return $startupQuery
         default: return $query
         }
     }
@@ -151,20 +154,22 @@ struct MonitorWindow: View {
             DiskTable(rows: disks, selection: $pinnedDisk)
         case .folder:
             FolderPane(model: folder)
+        case .startup:
+            StartupPane(query: startupQuery)
         case .cores:
             CoreGrid(points: monitor.history.points, latest: monitor.snapshot?.cores ?? [], window: window)
         default:
             HSplitView {
                 processList.frame(minWidth: 430)
                 if let selected, let row = monitor.snapshot?.processes.first(where: { $0.id == selected }) {
-                    ProcessInspector(row: row, sampler: monitor.sampler,
+                    ProcessInspector(row: row, tick: monitor.snapshot?.raw.date, sampler: monitor.sampler,
                                      pinned: monitor.history.isPinned(row.id),
                                      togglePin: {
                                          if monitor.history.isPinned(row.id) { monitor.unpin(row.id) }
                                          else { monitor.pin(row) }
                                      },
                                      close: { self.selected = nil })
-                        .frame(minWidth: 205, idealWidth: 235, maxWidth: 320)
+                        .frame(minWidth: 225, idealWidth: 270, maxWidth: 380)
                 }
             }
         }
@@ -203,6 +208,8 @@ struct MonitorWindow: View {
                 : "\(frame.disks.count) storage devices · select one to graph read and write"
         case .cores:
             return "\(frame.cores.count) logical cores"
+        case .startup:
+            return "Job definitions are shown as written on disk · Pulse does not load, edit or remove jobs"
         case .folder:
             return "Sizes come from file metadata · links are not followed · other volumes are not entered"
         default:

@@ -59,6 +59,9 @@ struct ProcessTable: View {
                     .customizationID("parent")
                 TableColumn("UID", value: \.uid) { Text(String($0.uid)) }
                     .customizationID("uid")
+                // Sorting by UID groups the processes of each user.
+                TableColumn("User", value: \.uid) { Text(Display.user($0.uid)) }
+                    .customizationID("user")
                 TableColumn("Threads", value: \.threadSort) { Text($0.reading.threads.map { String($0) } ?? "—") }
                     .customizationID("threads")
                 TableColumn("Resident memory", value: \.memorySort) { Text(Display.bytes($0.reading.residentBytes)) }
@@ -176,6 +179,7 @@ struct DiskTable: View {
 
 struct ProcessInspector: View {
     let row: ProcessRow
+    let tick: Date?
     let sampler: MacSampler
     let pinned: Bool
     let togglePin: () -> Void
@@ -196,7 +200,7 @@ struct ProcessInspector: View {
                 Text(row.name).font(.title3.bold()).textSelection(.enabled)
                 LabeledContent("PID", value: String(row.pid))
                 LabeledContent("Parent PID", value: String(row.parent))
-                LabeledContent("UID", value: String(row.uid))
+                LabeledContent("User", value: "\(Display.user(row.uid)) (\(row.uid))")
                 LabeledContent("CPU", value: Display.percent(row.cpu))
                 LabeledContent("Resident memory", value: Display.bytes(row.reading.residentBytes))
                 LabeledContent("Threads", value: row.reading.threads.map { String($0) } ?? "—")
@@ -224,6 +228,9 @@ struct ProcessInspector: View {
                 }
                 .disabled(path == nil)
                 if let message { Text(message).font(.caption).foregroundStyle(.secondary) }
+                QuitButton(row: row, sampler: sampler)
+                Divider()
+                ProcessDetailsView(id: row.id, tick: tick, sampler: sampler)
             }
             .padding(12)
         }

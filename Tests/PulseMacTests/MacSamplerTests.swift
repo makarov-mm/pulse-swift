@@ -59,4 +59,40 @@ final class MacSamplerTests: XCTestCase {
         XCTAssertGreaterThan(try child("big").allocatedBytes, try child("small").allocatedBytes)
         XCTAssertEqual(node.items, 5)
     }
+
+    func testDetailsListOwnThreadsAndLoopbackSockets() async throws {
+        let listener = socket(AF_INET, SOCK_STREAM, 0)
+        XCTAssertGreaterThanOrEqual(listener, 0)
+        defer { close(listener) }
+        var address = sockaddr_in()
+        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        let bound = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(listener, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        XCTAssertEqual(bound, 0)
+        XCTAssertEqual(listen(listener, 1), 0)
+
+        let sampler = MacSampler()
+        let snapshot = await sampler.sample()
+        let own = try XCTUnwrap(snapshot.processes.first { $0.id.pid == ProcessInfo.processInfo.processIdentifier })
+        let read = await sampler.details(for: own.id)
+        let details = try XCTUnwrap(read)
+        XCTAssertFalse(try XCTUnwrap(details.threads).isEmpty)
+        XCTAssertFalse(try XCTUnwrap(details.descriptors).isEmpty)
+        let found = try XCTUnwrap(details.sockets.first { $0.id == listener })
+        XCTAssertEqual(found.transport, "TCP")
+        XCTAssertEqual(found.family, "IPv4")
+        XCTAssertEqual(found.state, "Listen")
+        XCTAssertTrue(found.local.hasPrefix("127.0.0.1:"))
+        // A recycled PID must not be inspected under the old identity.
+        let reused = ProcessID(pid: own.id.pid, startSeconds: own.id.startSeconds + 1,
+                               startMicroseconds: own.id.startMicroseconds)
+        let stale = await sampler.details(for: reused)
+        XCTAssertNil(stale)
+        XCTAssertFalse(LaunchItems.read().isEmpty)
+    }
 }
