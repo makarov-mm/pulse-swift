@@ -10,6 +10,8 @@ final class Monitor: ObservableObject {
     @Published private(set) var history = History()
     @Published var paused = false
     @Published var interval = 2
+    /// Visible history in seconds: 1, 5 or 15 minutes.
+    @Published var window = 60
     let sampler = MacSampler()
 
     var busiest: InterfaceRow? { Self.busiest(in: snapshot?.interfaces ?? []) }
@@ -36,6 +38,9 @@ final class Monitor: ObservableObject {
             catch { return }
         }
     }
+
+    func pin(_ row: ProcessRow) { history.pin(row) }
+    func unpin(_ id: ProcessID) { history.unpin(id) }
 }
 
 enum Display {
@@ -51,6 +56,14 @@ enum Display {
 
     static func rate(_ value: Double?) -> String {
         guard let value else { return "—" }
-        return bytes(UInt64(value.rounded())) + "/s"
+        return bytes(UInt64(max(0, value).rounded())) + "/s"
+    }
+
+    static func clock(_ date: Date) -> String {
+        date.formatted(date: .omitted, time: .standard)
+    }
+
+    static func seconds(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(1))) + " s"
     }
 }

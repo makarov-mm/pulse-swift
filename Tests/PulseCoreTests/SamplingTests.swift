@@ -73,19 +73,74 @@ final class SamplingTests: XCTestCase {
     func testHistoryRetentionAndSearch() throws {
         var history = History()
         var last: RawSample?
-        for i in 1...100 {
+        for i in 1...1000 {
             var sample = raw(Double(i))
             sample.processes = [process(UInt64(i))]
             let frame = Snapshot(current: sample, previous: last, interval: 1)
             history.add(frame, interface: nil)
             last = sample
         }
-        XCTAssertEqual(history.points.count, 61)
+        XCTAssertEqual(history.points.count, 901)
         let row = try XCTUnwrap(Snapshot(current: try XCTUnwrap(last), previous: nil, interval: 1).processes.first)
         XCTAssertTrue(ProcessSearch.matches(row, text: "wOrK"))
         XCTAssertTrue(ProcessSearch.matches(row, text: "pid: 42"))
         XCTAssertTrue(ProcessSearch.matches(row, text: "42"))
         XCTAssertFalse(ProcessSearch.matches(row, text: "4"))
         XCTAssertFalse(ProcessSearch.matches(row, text: "pid:"))
+    }
+
+    func testIntervalRankingSurvivesExitAndPIDReuse() {
+        var history = History()
+        var last: RawSample?
+        let worker = ProcessID(pid: 42, startSeconds: 100, startMicroseconds: 1)
+        for i in 1...60 {
+            var sample = raw(Double(i))
+            sample.listedProcesses = 1
+            // The worker burns one core during seconds 11...30, then its PID is reused by an idle process.
+            if i <= 30 {
+                sample.processes = [process(i <= 10 ? 0 : UInt64(i - 10) * 100)]
+            } else {
+                sample.processes = [process(UInt64(i), birth: 2)]
+            }
+            if i == 10, let frame = last.map({ Snapshot(current: sample, previous: $0, interval: 1) }) {
+                history.pin(frame.processes[0])
+            }
+            history.add(Snapshot(current: sample, previous: last, interval: 1), interface: nil)
+            last = sample
+        }
+        let start = Date(timeIntervalSince1970: 1011), end = Date(timeIntervalSince1970: 1030)
+        let summary = history.summary(from: start, to: end)
+        XCTAssertEqual(summary.measuredSeconds, 20, accuracy: 0.001)
+        XCTAssertEqual(summary.leaders.first?.id, worker)
+        XCTAssertEqual(summary.leaders.first?.cpuSeconds ?? 0, 20, accuracy: 0.001)
+        XCTAssertEqual(summary.leaders.first?.averageCPU ?? 0, 100, accuracy: 0.001)
+        XCTAssertFalse(history.summary(from: end.addingTimeInterval(1), to: end.addingTimeInterval(30))
+            .leaders.contains { $0.id == worker })
+        let series = history.pinned[0]
+        XCTAssertEqual(series.id, worker)
+        XCTAssertEqual(series.samples.last?.time, Date(timeIntervalSince1970: 1030))
+        XCTAssertEqual(series.exited, Date(timeIntervalSince1970: 1031))
+    }
+
+    func testTreeKeepsParentChainAndRejectsYoungerParent() {
+        func row(_ pid: Int32, parent: Int32, start: UInt64, _ name: String) -> ProcessRow {
+            var sample = raw(1)
+            sample.processes = [ProcessReading(id: .init(pid: pid, startSeconds: start, startMicroseconds: 0),
+                                               parent: parent, uid: 501, name: name, residentBytes: nil,
+                                               threads: nil, cpuTicks: nil)]
+            return Snapshot(current: sample, previous: nil, interval: 1).processes[0]
+        }
+        let rows = [row(1, parent: 0, start: 1, "launchd"), row(10, parent: 1, start: 5, "shell"),
+                    row(11, parent: 10, start: 6, "worker"), row(12, parent: 1, start: 7, "other"),
+                    // PID 20 claims a parent that started after it: a recycled parent PID.
+                    row(20, parent: 30, start: 8, "orphan"), row(30, parent: 1, start: 9, "late")]
+        let all = ProcessTree.lines(ProcessTree.build(rows))
+        XCTAssertEqual(all.map(\.row.pid), [1, 10, 11, 12, 30, 20])
+        XCTAssertEqual(all.map(\.depth), [0, 1, 2, 1, 1, 0])
+        let found = ProcessTree.lines(ProcessTree.build(rows, matching: "work"))
+        XCTAssertEqual(found.map(\.row.pid), [1, 10, 11])
+        XCTAssertEqual(found.map(\.matches), [false, false, true])
+        let folded = ProcessTree.lines(ProcessTree.build(rows), collapsed: [rows[1].id])
+        XCTAssertEqual(folded.map(\.row.pid), [1, 10, 12, 30, 20])
     }
 }

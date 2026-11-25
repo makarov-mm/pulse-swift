@@ -6,6 +6,8 @@ public struct Snapshot: Sendable {
     public let processes: [ProcessRow]
     public let interfaces: [InterfaceRow]
     public let startsSegment: Bool
+    /// Awake seconds covered since the previous usable sample.
+    public let elapsed: TimeInterval?
 
     public init(current: RawSample, previous: RawSample?, interval: TimeInterval) {
         raw = current
@@ -18,6 +20,7 @@ public struct Snapshot: Sendable {
             return last
         }
         startsSegment = prior == nil
+        elapsed = prior.map { current.uptime - $0.uptime }
         if let a = prior?.host, let b = current.host,
            b.user >= a.user, b.system >= a.system, b.idle >= a.idle, b.nice >= a.nice {
             let busy = Double(b.user - a.user) + Double(b.system - a.system) + Double(b.nice - a.nice)
@@ -60,29 +63,5 @@ public enum ProcessSearch {
         }
         if let number = Int32(query) { return number == row.pid }
         return row.name.localizedCaseInsensitiveContains(query)
-    }
-}
-
-public struct HistoryPoint: Sendable {
-    public let time: Date
-    public let cpu, wired, volumeFree, network: Double?
-    public let networkID: InterfaceID?
-    public let startsSegment: Bool
-}
-
-public struct History: Sendable {
-    public private(set) var points: [HistoryPoint] = []
-    public init() {}
-
-    public mutating func add(_ sample: Snapshot, interface: InterfaceRow?) {
-        let time = sample.raw.date
-        if let last = points.last, last.time >= time { points.removeAll() }
-        points.removeAll { time.timeIntervalSince($0.time) > 60 }
-        points.append(HistoryPoint(time: time, cpu: sample.hostCPU,
-                                   wired: sample.raw.wiredBytes.map { Double($0) },
-                                   volumeFree: sample.raw.volumeFreeBytes.map { Double($0) },
-                                   network: interface?.combinedRate, networkID: interface?.id,
-                                   startsSegment: sample.startsSegment))
-        if points.count > 64 { points.removeFirst(points.count - 64) }
     }
 }

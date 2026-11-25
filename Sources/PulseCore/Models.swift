@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ProcessID: Hashable, Sendable {
+public struct ProcessID: Hashable, Sendable, Codable {
     public let pid: Int32
     public let startSeconds: UInt64
     public let startMicroseconds: UInt64
@@ -9,6 +9,10 @@ public struct ProcessID: Hashable, Sendable {
         self.pid = pid
         self.startSeconds = startSeconds
         self.startMicroseconds = startMicroseconds
+    }
+
+    public var started: Date {
+        Date(timeIntervalSince1970: Double(startSeconds) + Double(startMicroseconds) / 1_000_000)
     }
 }
 

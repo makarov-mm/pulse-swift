@@ -3,49 +3,150 @@ import SwiftUI
 import PulseCore
 import PulseMac
 
+/// Sortable process columns, used to store each view's sort order between launches.
+enum ProcessColumn: String, CaseIterable {
+    case name, pid, parent, uid, threads, memory, cpu
+
+    func comparator(_ order: SortOrder) -> KeyPathComparator<ProcessRow> {
+        var result: KeyPathComparator<ProcessRow>
+        switch self {
+        case .name: result = KeyPathComparator(\ProcessRow.name)
+        case .pid: result = KeyPathComparator(\ProcessRow.pid)
+        case .parent: result = KeyPathComparator(\ProcessRow.parent)
+        case .uid: result = KeyPathComparator(\ProcessRow.uid)
+        case .threads: result = KeyPathComparator(\ProcessRow.threadSort)
+        case .memory: result = KeyPathComparator(\ProcessRow.memorySort)
+        case .cpu: result = KeyPathComparator(\ProcessRow.cpuSort)
+        }
+        result.order = order
+        return result
+    }
+
+    static func decode(_ text: String) -> [KeyPathComparator<ProcessRow>] {
+        let parts = text.split(separator: ":")
+        let column = parts.first.flatMap { ProcessColumn(rawValue: String($0)) } ?? .name
+        return [column.comparator(parts.last == "reverse" ? .reverse : .forward)]
+    }
+
+    static func encode(_ order: [KeyPathComparator<ProcessRow>]) -> String? {
+        guard let first = order.first else { return nil }
+        let path = first.keyPath as AnyKeyPath
+        guard let column = allCases.first(where: { ($0.comparator(.forward).keyPath as AnyKeyPath) == path })
+        else { return nil }
+        return column.rawValue + (first.order == .reverse ? ":reverse" : ":forward")
+    }
+}
+
 struct ProcessTable: View {
     let rows: [ProcessRow]
     let details: Bool
     @Binding var selection: ProcessID?
-    @State private var processSort = [KeyPathComparator(\ProcessRow.cpuSort, order: .reverse)]
-    @State private var detailSort = [KeyPathComparator(\ProcessRow.name)]
+    // Each view keeps its own sort order and column layout.
+    @AppStorage("sort.processes") private var processSort = "cpu:reverse"
+    @AppStorage("sort.details") private var detailSort = "name:forward"
+    @AppStorage("columns.processes") private var processColumns = TableColumnCustomization<ProcessRow>()
+    @AppStorage("columns.details") private var detailColumns = TableColumnCustomization<ProcessRow>()
 
     var body: some View {
         if details {
-            Table(ordered(detailSort), selection: $selection, sortOrder: $detailSort) {
-                TableColumn("Name", value: \.name).width(min: 150, ideal: 220)
-                TableColumn("PID", value: \.pid) { Text(String($0.pid)) }.width(min: 45, ideal: 60)
+            Table(ordered(detailSort), selection: $selection, sortOrder: order($detailSort),
+                  columnCustomization: $detailColumns) {
+                TableColumn("Name", value: \.name) { Text($0.name).lineLimit(1).help($0.name) }
+                    .width(min: 150, ideal: 220).customizationID("name")
+                TableColumn("PID", value: \.pid) { Text(String($0.pid)) }
+                    .width(min: 45, ideal: 60).customizationID("pid")
                 TableColumn("Parent PID", value: \.parent) { Text(String($0.parent)) }
+                    .customizationID("parent")
                 TableColumn("UID", value: \.uid) { Text(String($0.uid)) }
+                    .customizationID("uid")
                 TableColumn("Threads", value: \.threadSort) { Text($0.reading.threads.map { String($0) } ?? "—") }
+                    .customizationID("threads")
                 TableColumn("Resident memory", value: \.memorySort) { Text(Display.bytes($0.reading.residentBytes)) }
+                    .customizationID("memory")
             }
         } else {
-            Table(ordered(processSort), selection: $selection, sortOrder: $processSort) {
-                TableColumn("Name", value: \.name).width(min: 150, ideal: 235)
-                TableColumn("PID", value: \.pid) { Text(String($0.pid)) }.width(min: 45, ideal: 65)
+            Table(ordered(processSort), selection: $selection, sortOrder: order($processSort),
+                  columnCustomization: $processColumns) {
+                TableColumn("Name", value: \.name) { Text($0.name).lineLimit(1).help($0.name) }
+                    .width(min: 150, ideal: 235).customizationID("name")
+                TableColumn("PID", value: \.pid) { Text(String($0.pid)) }
+                    .width(min: 45, ideal: 65).customizationID("pid")
                 TableColumn("CPU %", value: \.cpuSort) { Text(Display.percent($0.cpu)) }
+                    .customizationID("cpu")
                 TableColumn("Resident memory", value: \.memorySort) { Text(Display.bytes($0.reading.residentBytes)) }
+                    .customizationID("memory")
                 TableColumn("Threads", value: \.threadSort) { Text($0.reading.threads.map { String($0) } ?? "—") }
+                    .customizationID("threads")
             }
         }
     }
 
-    private func ordered(_ order: [KeyPathComparator<ProcessRow>]) -> [ProcessRow] {
-        rows.sorted(using: order + [KeyPathComparator(\ProcessRow.pid)])
+    private func ordered(_ stored: String) -> [ProcessRow] {
+        rows.sorted(using: ProcessColumn.decode(stored) + [KeyPathComparator(\ProcessRow.pid)])
+    }
+
+    private func order(_ stored: Binding<String>) -> Binding<[KeyPathComparator<ProcessRow>]> {
+        Binding(get: { ProcessColumn.decode(stored.wrappedValue) },
+                set: { if let text = ProcessColumn.encode($0) { stored.wrappedValue = text } })
+    }
+}
+
+/// Parent/child view. Branches collapse; a filter keeps every ancestor of a match visible.
+struct ProcessTreeTable: View {
+    let nodes: [ProcessNode]
+    let filtering: Bool
+    @Binding var selection: ProcessID?
+    @State private var collapsed: Set<ProcessID> = []
+
+    var body: some View {
+        Table(ProcessTree.lines(nodes, collapsed: filtering ? [] : collapsed), selection: $selection) {
+            TableColumn("Name") { (line: TreeLine) in name(line) }.width(min: 240, ideal: 360)
+            TableColumn("PID") { (line: TreeLine) in Text(String(line.row.pid)) }.width(min: 45, ideal: 65)
+            TableColumn("CPU %") { (line: TreeLine) in Text(Display.percent(line.row.cpu)) }
+            TableColumn("Resident memory") { (line: TreeLine) in Text(Display.bytes(line.row.reading.residentBytes)) }
+            TableColumn("Started") { (line: TreeLine) in
+                Text(line.row.id.started.formatted(date: .abbreviated, time: .standard))
+            }
+        }
+    }
+
+    private func name(_ line: TreeLine) -> some View {
+        HStack(spacing: 4) {
+            Color.clear.frame(width: CGFloat(line.depth) * 14, height: 1)
+            if line.hasChildren {
+                Button {
+                    if collapsed.contains(line.id) { collapsed.remove(line.id) } else { collapsed.insert(line.id) }
+                } label: {
+                    Image(systemName: line.collapsed ? "chevron.right" : "chevron.down").frame(width: 12)
+                }
+                .buttonStyle(.plain).disabled(filtering)
+                .accessibilityLabel(line.collapsed ? "Expand \(line.row.name)" : "Collapse \(line.row.name)")
+            } else {
+                Color.clear.frame(width: 12, height: 1)
+            }
+            Text(line.row.name).lineLimit(1).help(line.row.name)
+                .foregroundStyle(line.matches ? HierarchicalShapeStyle.primary : HierarchicalShapeStyle.secondary)
+        }
     }
 }
 
 struct NetworkTable: View {
     let rows: [InterfaceRow]
     @State private var order = [KeyPathComparator(\InterfaceRow.receiveSort, order: .reverse)]
+    @AppStorage("columns.network") private var columns = TableColumnCustomization<InterfaceRow>()
+
     var body: some View {
-        Table(rows.sorted(using: order + [KeyPathComparator(\InterfaceRow.name)]), sortOrder: $order) {
-            TableColumn("Interface", value: \.name).width(min: 135, ideal: 200)
+        Table(rows.sorted(using: order + [KeyPathComparator(\InterfaceRow.name)]), sortOrder: $order,
+              columnCustomization: $columns) {
+            TableColumn("Interface", value: \.name).width(min: 135, ideal: 200).customizationID("name")
             TableColumn("Receive rate", value: \.receiveSort) { Text(Display.rate($0.receiveRate)) }
+                .customizationID("receiveRate")
             TableColumn("Send rate", value: \.sendSort) { Text(Display.rate($0.sendRate)) }
+                .customizationID("sendRate")
             TableColumn("Bytes received", value: \.received) { Text(Display.bytes($0.received)) }
+                .customizationID("received")
             TableColumn("Bytes sent", value: \.sent) { Text(Display.bytes($0.sent)) }
+                .customizationID("sent")
         }
     }
 }
@@ -53,6 +154,8 @@ struct NetworkTable: View {
 struct ProcessInspector: View {
     let row: ProcessRow
     let sampler: MacSampler
+    let pinned: Bool
+    let togglePin: () -> Void
     let close: () -> Void
     @State private var resolved: (id: ProcessID, url: URL?)?
     @State private var message: String?
@@ -74,8 +177,11 @@ struct ProcessInspector: View {
                 LabeledContent("CPU", value: Display.percent(row.cpu))
                 LabeledContent("Resident memory", value: Display.bytes(row.reading.residentBytes))
                 LabeledContent("Threads", value: row.reading.threads.map { String($0) } ?? "—")
-                LabeledContent("Started", value: Date(timeIntervalSince1970: Double(row.id.startSeconds))
-                    .formatted(date: .abbreviated, time: .standard))
+                LabeledContent("Started", value: row.id.started.formatted(date: .abbreviated, time: .standard))
+                Button(action: togglePin) {
+                    Label(pinned ? "Unpin timeline" : "Pin timeline", systemImage: pinned ? "pin.slash" : "pin")
+                }
+                .help("Keep this instance's CPU timeline above the table, even after it exits")
                 Divider()
                 Text("Executable").font(.headline)
                 Text(path?.path ?? (resolved?.id == row.id ? "Path unavailable" : "Looking up path…"))

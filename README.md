@@ -26,8 +26,12 @@ The script builds for the current Mac’s architecture and ad-hoc signs the loca
 
 ## Use the monitor
 
-- Choose **Processes** for CPU load and resident memory. Choose **Details** for parent PID, numeric user ID and threads. Each table remembers its own sort order while the window is open. Click a column heading to sort or reverse it.
+- Choose **Processes** for CPU load and resident memory. Choose **Details** for parent PID, numeric user ID and threads. Click a column heading to sort or reverse it.
 - Press **⌘F** to focus the current table’s filter. Enter a name fragment, a PID, or an expression such as `pid: 1234`. Select a process for its inspector.
+- Choose **Tree** for the parent/child view. Collapse a branch with its chevron. A filter keeps every ancestor of a matching process visible.
+- Pick a 1-, 5- or 15-minute history in the toolbar. Drag across the CPU graph to rank the processes that were busiest in that interval, including ones that have already exited. The ranking shows PID, start time, average CPU and CPU time. It is built from the eight busiest processes of each sample.
+- Select a process and choose **Pin timeline** to keep that instance's CPU graph above the table. The series is keyed by PID and start time, so a reused PID never continues it.
+- Column widths, order and visibility, and the sort order, are stored separately for Processes and Details.
 - Choose **Network** to see measured interfaces that are up and non-loopback. The filter accepts interface names such as `en0`. A VPN tunnel and its underlying interface can both carry the same traffic.
 - Choose a one-, two- or five-second refresh interval. **⇧⌘P** pauses or resumes updates. After resuming, the first sample establishes a new baseline.
 - Choose **Makarov Pulse → About Makarov Pulse** for the version and developer credit. The English interface follows the system appearance and accent.

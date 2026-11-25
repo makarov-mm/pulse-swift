@@ -6,6 +6,13 @@ The goal is to follow a resource spike from a system graph to the process, inter
 
 The **0.1 source foundation** includes native sampling, three sortable views, a read-only process inspector, Finder reveal, four one-minute graphs, pause and refresh controls, and an About panel crediting Mykhailo Makarov. CPU rate calculations, PID reuse, resets, sleep gaps, exact PID search and history retention have automated test cases. M0 is the first native acceptance gate. Later milestones describe proposed work.
 
+## Status
+
+| Milestone | State |
+| --- | --- |
+| M0 | Open. The sources have not been compiled or run on a Mac yet. |
+| M1 | Implemented in source: 1/5/15-minute history with per-sample CPU leaders, interval ranking, parent tree with collapsible branches, pinned instance timelines, stored sort order and column layout per view. Awaiting the M0 build and the M1 acceptance run. |
+
 ## What fits macOS
 
 | Windows workflow | macOS approach | Boundary or release condition |
