@@ -12,7 +12,9 @@ public struct ScanProgress: Sendable {
 ///
 /// Policy: symbolic links are counted as links and never followed. Package directories are entered
 /// like any folder. Folders on another volume and cloud folders that are not downloaded are listed
-/// and not entered. A hard-linked file is counted at the first path that reaches it.
+/// and not entered. A hard-linked file is counted at the first path that reaches it. A folder that is
+/// reachable at several paths (APFS firmlinks such as /Users and /System/Volumes/Data/Users, or the
+/// kernel's /.nofollow and /.resolve views of the root) is entered once, at the shallowest path.
 public enum FolderScan {
     /// Largest files kept individually per folder. The rest are merged into one entry.
     public static let keptFilesPerFolder = 200
@@ -26,12 +28,13 @@ public enum FolderScan {
             throw CocoaError(.fileReadNoSuchFile)
         }
         var walker = Walker(device: info.st_dev, progress: progress)
+        walker.folders.insert(Walker.NodeID(device: info.st_dev, inode: info.st_ino))
         return try walker.folder(path, name: root.lastPathComponent, flags: info.st_flags)
     }
 }
 
 private struct Walker {
-    struct Link: Hashable {
+    struct NodeID: Hashable {
         let device: dev_t
         let inode: ino_t
     }
@@ -41,7 +44,10 @@ private struct Walker {
 
     let device: dev_t
     let progress: @Sendable (ScanProgress) -> Void
-    var links: Set<Link> = []
+    /// Regular files with more than one hard link, already counted.
+    var links: Set<NodeID> = []
+    /// Folders already entered or claimed by their parent.
+    var folders: Set<NodeID> = []
     var nextID = 0
     var items = 0
     var allocated: UInt64 = 0
@@ -68,6 +74,7 @@ private struct Walker {
         }
         var node = make(name, .folder)
         var files: [FolderNode] = []
+        var subfolders: [(path: String, name: String, flags: UInt32)] = []
         let prefix = path.hasSuffix("/") ? path : path + "/"
         for entry in names {
             let child = prefix + entry
@@ -78,17 +85,20 @@ private struct Walker {
             }
             let type = info.st_mode & S_IFMT
             if type == S_IFDIR {
-                if info.st_dev == device {
-                    node.adopt(try folder(child, name: entry, flags: info.st_flags))
-                } else {
+                // Claim every subfolder before entering any, so siblings win over aliases deeper down.
+                if info.st_dev != device {
                     node.adopt(make(entry, .otherVolume))
+                } else if !folders.insert(NodeID(device: info.st_dev, inode: info.st_ino)).inserted {
+                    node.adopt(make(entry, .countedElsewhere))
+                } else {
+                    subfolders.append((path: child, name: entry, flags: info.st_flags))
                 }
                 continue
             }
             var file = make(entry, type == S_IFLNK ? .symlink : .file)
             file.items = 1
             if type == S_IFREG, info.st_nlink > 1,
-               !links.insert(Link(device: info.st_dev, inode: info.st_ino)).inserted {
+               !links.insert(NodeID(device: info.st_dev, inode: info.st_ino)).inserted {
                 file.linkedElsewhere = true
             } else {
                 file.logicalBytes = UInt64(max(0, info.st_size))
@@ -97,6 +107,9 @@ private struct Walker {
             items += 1
             allocated += file.allocatedBytes
             files.append(file)
+        }
+        for sub in subfolders {
+            node.adopt(try folder(sub.path, name: sub.name, flags: sub.flags))
         }
         files.sort { (a: FolderNode, b: FolderNode) -> Bool in
             if a.allocatedBytes == b.allocatedBytes { return a.logicalBytes > b.logicalBytes }

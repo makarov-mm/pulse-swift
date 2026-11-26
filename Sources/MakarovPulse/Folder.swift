@@ -208,6 +208,7 @@ struct FolderPane: View {
         case .smallerFiles: return "doc.on.doc"
         case .otherVolume: return "externaldrive"
         case .cloudOnly: return "icloud"
+        case .countedElsewhere: return "folder.badge.questionmark"
         case .unreadable: return "lock"
         }
     }
@@ -217,6 +218,7 @@ struct FolderPane: View {
         case .symlink: return "Link, not followed"
         case .otherVolume: return "Other volume, not entered"
         case .cloudOnly: return "In the cloud, not entered"
+        case .countedElsewhere: return "Same folder as another path, counted there"
         case .unreadable: return "No permission"
         default:
             if node.linkedElsewhere { return "Hard link, counted elsewhere" }

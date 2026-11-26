@@ -10,6 +10,8 @@ public struct FolderNode: Identifiable, Sendable {
         case otherVolume
         /// A cloud folder whose contents are not downloaded. It is listed and not entered.
         case cloudOnly
+        /// A folder already counted at another path, such as a firmlink or /.nofollow. Not entered.
+        case countedElsewhere
         case unreadable
     }
 
